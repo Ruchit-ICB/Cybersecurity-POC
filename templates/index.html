@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Enterprise Cybersecurity Analytics</title>
+    <!-- Google Fonts for modern typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/static/dashboard.css">
+  </head>
+  <body>
+    <div class="app-container">
+      
+      <!-- Sidebar / Navigation -->
+      <aside class="sidebar">
+        <div class="logo">
+          <h2>Enterprise Cybersecurity Analytics</h2>
+        </div>
+        <nav>
+          <ul id="sidebar-nav">
+            <li class="active"><a href="#" data-target="dashboard-tab">POC Dashboard</a></li>
+            <li><a href="#" data-target="settings-tab">Settings</a></li>
+          </ul>
+        </nav>
+        <div class="ingestion-control">
+          <p>Background Engine</p>
+          <button id="btn-start" onclick="toggleIngestion('start')">Start</button>
+          <button id="btn-stop" onclick="toggleIngestion('stop')">Stop</button>
+        </div>
+      </aside>
+
+      <!-- Main Content -->
+      <main class="content">
+        
+        <!-- DASHBOARD TAB -->
+        <section id="dashboard-tab" class="tab-content active">
+          <header>
+            
+            <div class="global-risk">
+              <span class="label">Org Risk Score</span>
+              <div class="score-circle" id="overall-risk-score">--</div>
+            </div>
+          </header>
+
+        <!-- Top Metrics Row -->
+        <section class="metrics-grid">
+            <div class="metric-card">
+              <h3>System Health - CPU</h3>
+              <div class="value" id="health-cpu">--%</div>
+            </div>
+            <div class="metric-card">
+              <h3>System Health - Memory</h3>
+              <div class="value" id="health-mem">--%</div>
+            </div>
+            <div class="metric-card">
+              <h3>Active Connections</h3>
+              <div class="value" id="health-conn">--</div>
+            </div>
+            <div class="metric-card predictive-card">
+              <h3>Predictive Risk Forecast</h3>
+              <div class="value" id="predictive-likelihood">--</div>
+              <small id="predictive-category">Awaiting data...</small>
+            </div>
+        </section>
+
+        <!-- Charts Row -->
+        <section class="charts-row">
+          <div class="chart-container card" style="margin-bottom: 24px;">
+            <h2>Attack Timeline (Last Hour)</h2>
+            <canvas id="attackChart"></canvas>
+          </div>
+          
+          <!-- MANUAL SCAN POC INTEGRATED INTO DASHBOARD -->
+          <div class="card" style="padding: 24px; background: var(--panel-bg); border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 24px;">
+              <h2>Manual Log Analysis</h2>
+              <p class="subtitle" style="margin-bottom: 16px;">Paste raw server logs below to trigger the ML detection engine and Gemini AI analysis.</p>
+              <textarea id="log-input" rows="4" style="width: 100%; background: #0b1120; color: #cbd5e1; border: 1px solid #334155; border-radius: 8px; padding: 16px; font-family: monospace;" placeholder='{"timestamp": "2026-06-24T12:00:00Z", "level": "WARN", "message": "Failed SSH login from 192.168.1.50"}'></textarea>
+              <button id="btn-scan" onclick="runManualScan()" style="margin-top: 16px; padding: 12px 24px; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Scan with Gemini AI</button>
+              
+              <div id="scan-results" style="display: none; margin-top: 24px; border-top: 1px solid var(--border-color); padding-top: 24px;">
+                  <div class="metrics-grid" style="margin-bottom: 16px;">
+                      <div class="metric-card predictive-card" style="grid-column: span 4;">
+                        <h3>Gemini Threat Probability</h3>
+                        <div class="value" id="gemini-prob">--%</div>
+                        <p id="gemini-reason" style="color:#cbd5e1; margin-top:8px;">Waiting for analysis...</p>
+                      </div>
+                  </div>
+                  <div style="background: #0b1120; padding: 16px; border-radius: 8px; border: 1px solid var(--border-color);">
+                      <h3 style="margin: 0 0 12px 0; font-size: 0.9rem; color: var(--text-muted);">Detection Engine JSON Results</h3>
+                      <pre id="scan-raw-output" style="margin: 0; color: #10b981; font-family: monospace; overflow-x: auto; font-size: 0.85rem;"></pre>
+                  </div>
+              </div>
+          </div>
+        </section>
+
+        <!-- Bottom Row: Feeds -->
+        <section class="feeds-row">
+          
+          <div class="feed-container card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <h2 style="margin: 0;">Live Threat Alerts</h2>
+              <a href="/api/export/excel" style="padding: 8px 16px; background: #10b981; color: white; border-radius: 4px; text-decoration: none; font-size: 0.9em; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Export Excel
+              </a>
+            </div>
+            <div class="table-responsive">
+              <table id="threat-table">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Type</th>
+                    <th>Severity</th>
+                    <th>Source IP</th>
+                    <th>MITRE</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="feed-container card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <h2 style="margin: 0;">Vulnerability Findings</h2>
+              <a href="/api/export/vulnerabilities" style="padding: 8px 16px; background: #2563eb; color: white; border-radius: 4px; text-decoration: none; font-size: 0.9em; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
+                Export Vulnerabilities
+              </a>
+            </div>
+            <div class="table-responsive">
+              <table id="vuln-table">
+                <thead>
+                  <tr>
+                    <th>CVE</th>
+                    <th>Component</th>
+                    <th>Severity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </section> <!-- End dashboard-tab -->
+
+        <!-- SETTINGS TAB -->
+        <section id="settings-tab" class="tab-content" style="display: none;">
+            <header>
+              <div>
+                <h1>Settings</h1>
+                <p class="subtitle">Platform configuration and API keys.</p>
+              </div>
+            </header>
+            <div class="card" style="padding: 24px; background: var(--panel-bg); border-radius: 12px; border: 1px solid var(--border-color);">
+                <p style="color: var(--text-muted);">Settings configuration module is currently under construction.</p>
+            </div>
+        </section>
+
+      </main>
+    </div>
+    <script src="/static/dashboard.js"></script>
+  </body>
+</html>

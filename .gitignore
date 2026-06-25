@@ -1,0 +1,35 @@
+# Byte-compiled / optimised
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+
+# Distribution
+dist/
+build/
+
+# Virtual environments
+.env
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# Serialised models
+models/*.joblib
+
+# Logs
+*.log
+
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+
+# OS
+Thumbs.db
+.DS_Store
+~$*
