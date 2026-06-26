@@ -36,16 +36,15 @@ class LogIngestor:
             logger.info("Stopped background data ingestion scheduler")
 
     def poll_loki(self):
-        """Fetch logs from Loki, run threat detection, and save to DB."""
+        
         from .feature_engineering import extract_features
         from .threat_detection import ThreatDetector
-        from .database import Alert
-        from .gemini_client import GeminiAnalyzer
+        from .database import Alert, Vulnerability
+        from .vulnerability_assessment import VulnerabilityAssessment
         
-        # Instantiate detector lazily to avoid circular imports during init
+    
         if not hasattr(self, 'detector'):
             self.detector = ThreatDetector()
-            self.gemini = GeminiAnalyzer()
             
         logs = self.loki.query_logs('{job="varlogs"}', limit=20)
         db = SessionLocal()
@@ -55,13 +54,11 @@ class LogIngestor:
                 entry = LogEntry(message=log_str, source="loki", level="INFO")
                 db.add(entry)
                 features_list.append(extract_features(log_str))
-                
-            # Run detection engine on incoming logs
             detections = self.detector.detect(features_list)
             for d in detections:
-                gemini_summary = None
+                ml_summary = None
                 if d["severity"] in ["high", "critical"]:
-                    gemini_summary = self.gemini.analyze_alert(d["threat_type"], d["severity"], d["raw_message"])
+                    ml_summary = self.detector.local_analyze_alert(d["threat_type"], d["severity"], d["raw_message"])
                     
                 alert = Alert(
                     alert_type=d["threat_type"],
@@ -70,12 +67,37 @@ class LogIngestor:
                     source_ip=d["source_ip"],
                     confidence=d["confidence"],
                     mitre_tactic=",".join(d["mitre_tactics"]),
-                    gemini_summary=gemini_summary
+                    ai_summary=ml_summary
                 )
                 db.add(alert)
+            v_assessment = VulnerabilityAssessment().assess(features_list)
+            for finding in v_assessment["findings"]:
+                cve_id = finding.get("cve_id")
+                if not cve_id:
+                    continue
+                existing = db.query(Vulnerability).filter_by(cve_id=cve_id).first()
+                if existing:
+                    if (
+                        existing.description != finding.get("description") or
+                        existing.cvss_score != finding.get("cvss_score") or
+                        existing.severity != finding.get("severity") or
+                        existing.mitigation != finding.get("mitigation")
+                    ):
+                        existing.description = finding.get("description")
+                        existing.cvss_score = finding.get("cvss_score", existing.cvss_score)
+                        existing.severity = finding.get("severity", existing.severity)
+                        existing.mitigation = finding.get("mitigation", existing.mitigation)
+                else:
+                    db.add(Vulnerability(
+                        cve_id=cve_id,
+                        description=finding.get("description", ""),
+                        cvss_score=finding.get("cvss_score", 0.0),
+                        severity=finding.get("severity", "Unknown"),
+                        mitigation=finding.get("mitigation", "N/A")
+                    ))
                 
             db.commit()
-            logger.debug("Ingested %d mock logs and generated %d alerts", len(logs), len(detections))
+            logger.debug("Ingested %d mock logs, generated %d alerts, and checked vulnerabilities", len(logs), len(detections))
         except Exception as e:
             db.rollback()
             logger.error("Error ingesting logs: %s", e)

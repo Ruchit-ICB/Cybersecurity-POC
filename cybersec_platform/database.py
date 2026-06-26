@@ -27,7 +27,7 @@ class Alert(Base):
     source_ip = Column(String(50))
     confidence = Column(Float)
     mitre_tactic = Column(String(100))
-    gemini_summary = Column(Text, nullable=True)
+    ai_summary = Column("gemini_summary", Text, nullable=True)
 
 class Metric(Base):
     __tablename__ = "metrics"

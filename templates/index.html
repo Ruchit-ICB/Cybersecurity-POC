@@ -18,17 +18,6 @@
         <div class="logo">
           <h2>Enterprise Cybersecurity Analytics</h2>
         </div>
-        <nav>
-          <ul id="sidebar-nav">
-            <li class="active"><a href="#" data-target="dashboard-tab">POC Dashboard</a></li>
-            <li><a href="#" data-target="settings-tab">Settings</a></li>
-          </ul>
-        </nav>
-        <div class="ingestion-control">
-          <p>Background Engine</p>
-          <button id="btn-start" onclick="toggleIngestion('start')">Start</button>
-          <button id="btn-stop" onclick="toggleIngestion('stop')">Stop</button>
-        </div>
       </aside>
 
       <!-- Main Content -->
@@ -36,13 +25,6 @@
         
         <!-- DASHBOARD TAB -->
         <section id="dashboard-tab" class="tab-content active">
-          <header>
-            
-            <div class="global-risk">
-              <span class="label">Org Risk Score</span>
-              <div class="score-circle" id="overall-risk-score">--</div>
-            </div>
-          </header>
 
         <!-- Top Metrics Row -->
         <section class="metrics-grid">
@@ -68,28 +50,72 @@
         <!-- Charts Row -->
         <section class="charts-row">
           <div class="chart-container card" style="margin-bottom: 24px;">
-            <h2>Attack Timeline (Last Hour)</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <h2 style="margin: 0;">Attack Timeline</h2>
+              <div style="display: flex; gap: 8px;">
+                <button class="filter-btn active" data-range="30" onclick="setTimeRange(30)">30 min</button>
+                <button class="filter-btn" data-range="60" onclick="setTimeRange(60)">1 hour</button>
+                <button class="filter-btn" data-range="180" onclick="setTimeRange(180)">3 hours</button>
+                <button class="filter-btn" data-range="1440" onclick="setTimeRange(1440)">24 hours</button>
+              </div>
+            </div>
             <canvas id="attackChart"></canvas>
           </div>
           
           <!-- MANUAL SCAN POC INTEGRATED INTO DASHBOARD -->
           <div class="card" style="padding: 24px; background: var(--panel-bg); border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 24px;">
               <h2>Manual Log Analysis</h2>
-              <p class="subtitle" style="margin-bottom: 16px;">Paste raw server logs below to trigger the ML detection engine and Gemini AI analysis.</p>
+              <p class="subtitle" style="margin-bottom: 16px;">Paste raw server logs below to trigger the ML detection engine analysis.</p>
               <textarea id="log-input" rows="4" style="width: 100%; background: #0b1120; color: #cbd5e1; border: 1px solid #334155; border-radius: 8px; padding: 16px; font-family: monospace;" placeholder='{"timestamp": "2026-06-24T12:00:00Z", "level": "WARN", "message": "Failed SSH login from 192.168.1.50"}'></textarea>
-              <button id="btn-scan" onclick="runManualScan()" style="margin-top: 16px; padding: 12px 24px; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Scan with Gemini AI</button>
+              <button id="btn-scan" onclick="runManualScan()" style="margin-top: 16px; padding: 12px 24px; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Scan with ML Engine</button>
               
               <div id="scan-results" style="display: none; margin-top: 24px; border-top: 1px solid var(--border-color); padding-top: 24px;">
-                  <div class="metrics-grid" style="margin-bottom: 16px;">
+                  <div class="metrics-grid" style="margin-bottom: 20px;">
                       <div class="metric-card predictive-card" style="grid-column: span 4;">
-                        <h3>Gemini Threat Probability</h3>
-                        <div class="value" id="gemini-prob">--%</div>
-                        <p id="gemini-reason" style="color:#cbd5e1; margin-top:8px;">Waiting for analysis...</p>
+                        <h3>ML Threat Probability</h3>
+                        <div class="value" id="ai-prob">--%</div>
+                        <p id="ai-reason" style="color:#cbd5e1; margin-top:8px;">Waiting for analysis...</p>
                       </div>
                   </div>
+                  
+                  <div id="scan-incidents-container" style="display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 24px;">
+                      <!-- Populated dynamically with incident cards -->
+                  </div>
+                  
                   <div style="background: #0b1120; padding: 16px; border-radius: 8px; border: 1px solid var(--border-color);">
                       <h3 style="margin: 0 0 12px 0; font-size: 0.9rem; color: var(--text-muted);">Detection Engine JSON Results</h3>
                       <pre id="scan-raw-output" style="margin: 0; color: #10b981; font-family: monospace; overflow-x: auto; font-size: 0.85rem;"></pre>
+                  </div>
+              </div>
+          </div>
+
+          <div class="card" style="padding: 24px; background: var(--panel-bg); border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 24px;">
+              <h2>Code Quality Scanner</h2>
+              <p class="subtitle" style="margin-bottom: 16px;">Upload one source file and run the Sonar-like analysis for bugs, vulnerabilities, and maintainability issues.</p>
+              <input id="code-file-input" type="file" accept=".py,.js,.ts,.java,.html,.css" style="width: 100%; padding: 12px; margin-bottom: 16px; background: #0b1120; color: #cbd5e1; border: 1px solid #334155; border-radius: 8px;" />
+              <button id="btn-code-scan" onclick="runCodeUploadAnalysis()" style="margin-top: 8px; padding: 12px 24px; background: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">Analyze Code</button>
+
+              <div id="code-scan-results" style="display: none; margin-top: 24px; border-top: 1px solid var(--border-color); padding-top: 24px;">
+                  <div style="margin-bottom: 16px;">
+                      <h3 style="margin: 0 0 12px 0; font-size: 1rem; color: var(--text-muted);">Code Quality Summary</h3>
+                      <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                          <div class="metric-card" style="flex: 1; min-width: 150px; padding: 16px;">Bugs: <strong id="code-bug-count">0</strong></div>
+                          <div class="metric-card" style="flex: 1; min-width: 150px; padding: 16px;">Vulnerabilities: <strong id="code-vuln-count">0</strong></div>
+                          <div class="metric-card" style="flex: 1; min-width: 150px; padding: 16px;">Maintenance Issues: <strong id="code-maintain-count">0</strong></div>
+                      </div>
+                  </div>
+                  <div class="table-responsive">
+                      <table id="code-scan-table">
+                          <thead>
+                              <tr>
+                                  <th>Line</th>
+                                  <th>Category</th>
+                                  <th>Severity</th>
+                                  <th>Description</th>
+                              </tr>
+                          </thead>
+                          <tbody></tbody>
+                      </table>
                   </div>
               </div>
           </div>
@@ -147,20 +173,9 @@
             </div>
           </div>
 
-        </section> <!-- End dashboard-tab -->
-
-        <!-- SETTINGS TAB -->
-        <section id="settings-tab" class="tab-content" style="display: none;">
-            <header>
-              <div>
-                <h1>Settings</h1>
-                <p class="subtitle">Platform configuration and API keys.</p>
-              </div>
-            </header>
-            <div class="card" style="padding: 24px; background: var(--panel-bg); border-radius: 12px; border: 1px solid var(--border-color);">
-                <p style="color: var(--text-muted);">Settings configuration module is currently under construction.</p>
-            </div>
         </section>
+
+        </section> <!-- End dashboard-tab -->
 
       </main>
     </div>

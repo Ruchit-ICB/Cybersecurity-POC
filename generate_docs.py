@@ -1,7 +1,3 @@
-"""
-Script to generate the full NexusSec project documentation as a Word (.docx) file.
-Run: python generate_docs.py
-"""
 from docx import Document
 from docx.shared import Pt, RGBColor, Inches, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -88,14 +84,14 @@ def main():
 
     doc.add_page_break()
 
-    # ─── 1. EXECUTIVE SUMMARY ────────────────────────────────────
+    
     add_heading(doc, "1. Executive Summary", 1)
     doc.add_paragraph(
         "NexusSec is a production-ready, enterprise-grade Security Operations Center (SOC) analytics "
         "platform designed to continuously ingest, analyse, and respond to cybersecurity threats in real time. "
         "Built on Python/Flask with a modular architecture, it integrates machine-learning threat detection, "
-        "Gemini AI-powered analysis, automated data ingestion from Grafana/Loki/Prometheus, and a modern "
-        "dark-mode web dashboard — all backed by a persistent SQLite/PostgreSQL database."
+        "local rule-based AI analysis, Sonar-like static code scanning, automated data ingestion from "
+        "Grafana/Loki/Prometheus, and a modern dark-mode web dashboard — all backed by a persistent SQLite database."
     )
     doc.add_paragraph(
         "The platform replaces simple proof-of-concept (POC) log scanning with a scalable pipeline capable "
@@ -103,7 +99,7 @@ def main():
         "risk forecasting, and one-click Excel report exports."
     )
 
-    # ─── 2. ARCHITECTURE OVERVIEW ────────────────────────────────
+    
     add_heading(doc, "2. System Architecture", 1)
     doc.add_paragraph(
         "NexusSec follows the Flask Application Factory pattern with clearly separated concerns across modules. "
@@ -118,15 +114,16 @@ def main():
     comp_rows = [
         ("Frontend (Browser)", "HTML / CSS / Vanilla JS", "Polls /api/dashboard every 3s, renders charts and threat tables"),
         ("Flask Web Server",   "Python 3.13 / Flask 3.x", "Serves static files, API endpoints, and the main template"),
-        ("REST API Layer",     "cybersec_platform/api.py", "5 endpoints: dashboard, scan, export, start/stop-ingestion"),
+        ("REST API Layer",     "cybersec_platform/api.py", "8 endpoints: dashboard, scan, upload-code, exports, start/stop-ingestion"),
         ("Background Scheduler", "APScheduler 3.x",       "Polls mock APIs every 10–15 s, saves data to DB"),
         ("Threat Detection",  "Scikit-learn + RegEx",     "40+ MITRE-mapped signatures + Isolation Forest + Random Forest"),
-        ("Gemini AI",         "google-genai SDK 2.10+",   "Analyses high/critical alerts & manual log scans"),
+        ("Local Analysis",    "Pre-defined Expert Matrix", "Generates high-fidelity explanations & mitigations locally"),
+        ("Sonar Analyzer",    "Regex rule engine",         "Static analysis of uploaded source files for bugs and vulnerabilities"),
         ("Database",          "SQLAlchemy + SQLite",       "Stores logs, alerts, metrics, vulnerabilities, system health"),
     ]
     add_table(doc, ["Component", "Technology", "Responsibility"], comp_rows)
 
-    # ─── 3. FILE STRUCTURE ───────────────────────────────────────
+    
     add_heading(doc, "3. Repository File Structure", 1)
     add_code(doc,
         "Cybersecurity POC/\n"
@@ -148,8 +145,10 @@ def main():
         "│   ├── threat_detection.py         # Unified detection engine\n"
         "│   ├── vulnerability_assessment.py # CVE risk scoring\n"
         "│   ├── predictive_analytics.py     # Trend forecasting\n"
-        "│   ├── gemini_client.py            # Google Gemini AI integration\n"
+        "│   ├── sonar_analyzer.py           # Sonar-like static code analysis\n"
         "│   └── utils.py                    # Shared helpers\n"
+        "├── evaluate_model.py               # ML evaluation CLI\n"
+        "├── .github/workflows/sonar-analysis.yml  # CI static analysis\n"
         "├── static/\n"
         "│   ├── dashboard.css               # Dark-mode stylesheet\n"
         "│   └── dashboard.js                # Frontend logic & API polling\n"
@@ -171,7 +170,7 @@ def main():
     )
     db_rows = [
         ("LogEntry",     "log_entries",    "Raw ingested log messages from Loki/manual scan"),
-        ("Alert",        "alerts",         "Detected threats with severity, MITRE tactic, and Gemini AI summary"),
+        ("Alert",        "alerts",         "Detected threats with severity, MITRE tactic, and ML Threat Analysis summary"),
         ("Metric",       "metrics",        "Time-series Prometheus metrics (CPU, memory, network)"),
         ("Vulnerability","vulnerabilities", "Known CVEs with CVSS scores and mitigations"),
         ("SystemHealth", "system_health",  "Aggregated system resource snapshots"),
@@ -184,7 +183,7 @@ def main():
         "Implements the LogIngestor singleton that manages an APScheduler instance. "
         "Two recurring jobs run in background threads:"
     )
-    doc.add_paragraph("• poll_loki() — runs every 10 s: fetches 20 log lines from LokiClient, extracts features, runs ThreatDetector, optionally calls Gemini for high/critical alerts, saves results to DB.")
+    doc.add_paragraph("• poll_loki() — runs every 10 s: fetches 20 log lines from LokiClient, extracts features, runs ThreatDetector, automatically generates local security analysis for high/critical alerts, saves results to DB.")
     doc.add_paragraph("• poll_prometheus() — runs every 15 s: fetches system metrics from PrometheusClient, saves a SystemHealth snapshot to DB.")
 
     # 4.3 integrations.py
@@ -203,6 +202,7 @@ def main():
     )
     doc.add_paragraph("• Rule-Based Signatures: 40+ compiled RegEx patterns mapped to MITRE ATT&CK technique IDs.")
     doc.add_paragraph("• Machine Learning: Isolation Forest for anomaly detection + Random Forest for multi-class threat classification.")
+    doc.add_paragraph("• Event-Based Multi-Threat Analysis: Refactored to perform independent line-by-line event parsing and threat extraction, ensuring multi-threat log entries generate separate, unmerged alerts.")
     doc.add_paragraph()
 
     attack_rows = [
@@ -219,23 +219,24 @@ def main():
     ]
     add_table(doc, ["Attack Category", "Detected Threats"], attack_rows)
 
-    # 4.5 gemini_client.py
-    add_heading(doc, "4.5 gemini_client.py — Gemini AI Integration", 2)
+    # 4.5 Local Analysis Engine
+    add_heading(doc, "4.5 Local Analysis Engine", 2)
     doc.add_paragraph(
-        "Uses the official google-genai Python SDK (v2.10+) to call the gemini-2.5-flash model for two use cases:"
+        "Runs 100% locally on the host machine without external API dependencies. Implements two core analysis methods in ThreatDetector:"
     )
-    doc.add_paragraph("• analyze_log(log_text) → {probability: int, reason: str}: Used by the Manual Scan POC endpoint. Returns a 0–100 threat probability and a 1-sentence explanation.")
-    doc.add_paragraph("• analyze_alert(threat_type, severity, raw_message) → str: Called automatically by the ingestion pipeline for High/Critical alerts only. Returns a 2–3 sentence incident summary with impact assessment and mitigation recommendation.")
-    doc.add_paragraph("Includes graceful handling of 429 RESOURCE_EXHAUSTED quota errors from the Free Tier API.")
+    doc.add_paragraph("• local_analyze_log(log_text) → {probability: int, reason: str}: Computes a 0–100 threat probability and returns a structured explanation using rules and ML anomalies.")
+    doc.add_paragraph("• local_analyze_alert(threat_type, severity, raw_message) → str: Generates a professional 2–3 sentence security summary containing attack explanation, impact, and mitigation from a pre-defined 43-threat expert matrix.")
 
     # 4.6 api.py
     add_heading(doc, "4.6 api.py — REST API Endpoints", 2)
     api_rows = [
         ("POST", "/api/start-ingestion", "Start the background APScheduler ingestion loop"),
         ("POST", "/api/stop-ingestion",  "Stop the background APScheduler ingestion loop"),
-        ("GET",  "/api/dashboard",        "Returns JSON: live_threats, system_health, attack_timeline, vulnerability_summary, predictive_risk"),
-        ("POST", "/api/scan",             "Manual log scan: body={log_text}. Returns detections, assessment, and gemini_analysis"),
-        ("GET",  "/api/export/excel",     "Generates and downloads all alerts as security_alerts_export.xlsx"),
+        ("GET",  "/api/dashboard",        "Live dashboard data; optional ?time_range=<minutes> (default 60)"),
+        ("POST", "/api/scan",             "Manual log scan: body={log_text}. Returns detections, assessment, and ml_analysis"),
+        ("POST", "/api/upload-code",      "Upload source file (code_file) for Sonar-like static analysis"),
+        ("GET",  "/api/export/excel",     "Download all alerts as security_alerts_export.xlsx"),
+        ("GET",  "/api/export/vulnerabilities", "Download CVE findings as vulnerabilities_export.csv"),
     ]
     add_table(doc, ["Method", "Endpoint", "Description"], api_rows)
 
@@ -294,7 +295,7 @@ def main():
         ("alerts", "source_ip", "VARCHAR(50)", "Originating IP address"),
         ("alerts", "confidence", "FLOAT", "0.0–1.0 ML confidence score"),
         ("alerts", "mitre_tactic", "VARCHAR(100)", "Comma-separated MITRE ATT&CK technique IDs"),
-        ("alerts", "gemini_summary", "TEXT", "AI-generated incident summary (nullable)"),
+        ("alerts", "gemini_summary", "TEXT", "ML-generated incident summary (nullable)"),
         # log_entries
         ("log_entries", "id", "INTEGER", "Primary Key"),
         ("log_entries", "timestamp", "DATETIME", "When the log was ingested"),
@@ -324,8 +325,8 @@ def main():
         ("Settings",      "Placeholder for future platform configuration."),
         ("Metric Cards",  "4 live cards: Total Threats (1h), High Severity, Critical Severity, Org Risk Score."),
         ("Attack Timeline", "Chart.js bar chart: attacks per minute over the last 60 minutes."),
-        ("Manual Log Analysis", "Paste raw logs → click 'Scan with Gemini AI' → see threat probability + JSON results."),
-        ("Live Threat Alerts",  "Table of latest 15 detected threats. High/Critical entries show Gemini AI analysis inline."),
+        ("Manual Log Analysis", "Paste raw logs → click 'Scan with ML Engine' → see threat probability + JSON results."),
+        ("Live Threat Alerts",  "Table of latest 15 detected threats. High/Critical entries show ML Threat Analysis inline."),
         ("Vulnerability Feed",  "List of CVEs matched against incoming logs."),
         ("Predictive Risk",     "AI forecast of next likely attack type with mitigation recommendation."),
         ("Export Excel Button", "Downloads all alerts as security_alerts_export.xlsx via /api/export/excel."),
@@ -339,7 +340,7 @@ def main():
     doc.add_paragraph("Returns JSON with 5 keys:")
     add_code(doc,
         '{\n'
-        '  "live_threats":       [ { id, timestamp, type, severity, description, source_ip, mitre, gemini_summary } ],\n'
+        '  "live_threats":       [ { id, timestamp, type, severity, description, source_ip, mitre, ai_summary } ],\n'
         '  "system_health":      { cpu_usage, memory_usage, active_connections },\n'
         '  "attack_timeline":    [ { time: "ISO", count: N } ],\n'
         '  "vulnerability_summary": { risk_score, cves: [...] },\n'
@@ -356,7 +357,7 @@ def main():
         '  "detections":       [ { threat_type, severity, confidence, mitre_tactics, signatures } ],\n'
         '  "assessment":       { risk_score, cves: [...] },\n'
         '  "aggregate":        { ... feature summary ... },\n'
-        '  "gemini_analysis":  { "probability": 95, "reason": "SQL injection detected in URI." }\n'
+        '  "ml_analysis":      { "probability": 95, "reason": "SQL injection detected in URI." }\n'
         '}'
     )
 
@@ -378,7 +379,7 @@ def main():
         ("APScheduler>=3.10",   "Background job scheduling"),
         ("xgboost>=2.0",        "Gradient boosting (architectural placeholder)"),
         ("lightgbm>=4.0",       "Light gradient boosting (architectural placeholder)"),
-        ("google-genai>=0.1",   "Official Google Gemini AI SDK"),
+        # google-genai dependency removed
         ("pandas>=2.0",         "DataFrame processing for Excel export"),
         ("openpyxl>=3.1",       "Excel .xlsx file generation"),
         ("python-docx",         "Documentation generation (this script)"),
@@ -391,7 +392,7 @@ def main():
     add_heading(doc, "9.1 Prerequisites", 2)
     doc.add_paragraph("• Python 3.11 or later")
     doc.add_paragraph("• pip (Python package manager)")
-    doc.add_paragraph("• A valid Google Gemini API key (Free Tier or Paid)")
+    doc.add_paragraph("• Standard Python environment")
 
     add_heading(doc, "9.2 Installation", 2)
     add_code(doc,
@@ -407,10 +408,19 @@ def main():
 
     add_heading(doc, "9.3 Configuration", 2)
     doc.add_paragraph(
-        "The Gemini API key is currently hardcoded in cybersec_platform/gemini_client.py. "
-        "For production deployment, replace this with an environment variable:"
+        "Configuration is managed by cybersec_platform/config.py. Override defaults via environment variables:"
     )
-    add_code(doc, 'GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "your-key-here")')
+    config_rows = [
+        ("GRAFANA_URL", "http://localhost:3000", "Grafana base URL"),
+        ("LOKI_URL", "http://localhost:3100", "Loki base URL"),
+        ("PROMETHEUS_URL", "http://localhost:9090", "Prometheus base URL"),
+        ("MODEL_STORE_PATH", "./models", "ML/LLM model directory"),
+        ("LLAMA_MODEL_PATH", "./models/llama_model.gguf", "Optional GGUF model path"),
+        ("LOG_LEVEL", "INFO", "Application log level"),
+        ("FLASK_DEBUG", "0", "Set to 1 for Flask debug mode"),
+    ]
+    add_table(doc, ["Variable", "Default", "Description"], config_rows)
+    doc.add_paragraph("No external API keys are required for core platform operation.")
 
     # ─── 10. ATTACK DETECTION CATALOGUE ─────────────────────────
     add_heading(doc, "10. Complete Attack Detection Catalogue", 1)
@@ -466,8 +476,16 @@ def main():
     ]
     add_table(doc, ["Attack Name", "Severity", "MITRE ID", "Category"], full_attacks)
 
-    # ─── 11. FUTURE ROADMAP ──────────────────────────────────────
-    add_heading(doc, "11. Future Roadmap", 1)
+    # ─── 11. CI/CD ───────────────────────────────────────────────
+    add_heading(doc, "11. CI/CD — Sonar-like Code Analysis", 1)
+    doc.add_paragraph(
+        "The GitHub Actions workflow .github/workflows/sonar-analysis.yml runs on push and pull requests to main. "
+        "It scans all .py, .js, .ts, .java, .html, and .css source files with SonarAnalyzer and fails the build "
+        "if any Critical-severity issue is found."
+    )
+
+    # ─── 12. FUTURE ROADMAP ──────────────────────────────────────
+    add_heading(doc, "12. Future Roadmap", 1)
     roadmap = [
         ("Replace Mock Clients",       "Connect GrafanaClient / LokiClient / PrometheusClient to real production endpoints."),
         ("PostgreSQL Migration",       "Replace SQLite with PostgreSQL via SQLAlchemy connection string for production scale."),
@@ -482,13 +500,13 @@ def main():
     ]
     add_table(doc, ["Feature", "Description"], roadmap)
 
-    # ─── 12. KNOWN LIMITATIONS ───────────────────────────────────
-    add_heading(doc, "12. Known Limitations", 1)
-    doc.add_paragraph("• Gemini API Free Tier is limited to 20 requests/day for gemini-2.5-flash; quota errors are handled gracefully.")
+    # ─── 13. KNOWN LIMITATIONS ───────────────────────────────────
+    add_heading(doc, "13. Known Limitations", 1)
+    doc.add_paragraph("• Unsupervised models (IsolationForest) are trained on seed data at startup; real production use requires historical dataset training.")
     doc.add_paragraph("• All data sources are currently mocked. No real network calls are made to Grafana/Loki/Prometheus.")
     doc.add_paragraph("• ML models (IsolationForest, RandomForest) are trained on random data at startup. Real detection accuracy requires historical labelled data.")
     doc.add_paragraph("• SQLite has write concurrency limitations. Use PostgreSQL for any multi-process or multi-user deployment.")
-    doc.add_paragraph("• The API key in gemini_client.py is hardcoded for POC convenience. This must be externalised before any production use.")
+    doc.add_paragraph("• SonarAnalyzer is regex-based and heuristic; it is not a substitute for full SAST tooling like SonarQube.")
 
     # ─── FOOTER ──────────────────────────────────────────────────
     doc.add_page_break()

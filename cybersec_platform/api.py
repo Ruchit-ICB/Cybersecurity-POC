@@ -8,16 +8,18 @@ from .config import Config
 from .ingestion import LogIngestor
 from .feature_engineering import aggregate_window, extract_features
 from .predictive_analytics import PredictiveAnalytics
+from .sonar_analyzer import SonarAnalyzer
 from .vulnerability_assessment import VulnerabilityAssessment
 
 api = Blueprint("api", __name__, url_prefix="/api")
 
 _config = Config()
 _ingestor = LogIngestor(_config)
+_ingestor.start()
 
 @api.route("/start-ingestion", methods=["POST"])
 def start_ingestion():
-    """Start the background data ingestion loop."""
+    
     _ingestor.start()
     return jsonify({"status": "Ingestion started"})
 
@@ -94,9 +96,12 @@ def get_dashboard_data():
     db = SessionLocal()
     try:
         now = datetime.utcnow()
-        one_hour_ago = now - timedelta(hours=1)
-        
-        
+
+        # Get time range from query parameter (default to 60 minutes)
+        time_range_minutes = request.args.get('time_range', 60, type=int)
+        time_range_start = now - timedelta(minutes=time_range_minutes)
+
+
         recent_alerts_query = db.query(Alert).order_by(Alert.timestamp.desc()).limit(15).all()
         live_threats = [{
             "id": a.id,
@@ -106,32 +111,40 @@ def get_dashboard_data():
             "description": a.description,
             "source_ip": a.source_ip,
             "mitre": a.mitre_tactic,
-            "gemini_summary": getattr(a, "gemini_summary", None)
+            "ai_summary": getattr(a, "ai_summary", None)
         } for a in recent_alerts_query]
-        
-        
+
+
         recent_health = db.query(SystemHealth).order_by(SystemHealth.timestamp.desc()).limit(1).first()
         system_health = {
             "cpu_usage": recent_health.cpu_usage if recent_health else 0,
             "memory_usage": recent_health.memory_usage if recent_health else 0,
             "active_connections": recent_health.active_connections if recent_health else 0
         }
-        
-        
-        alerts_last_hour = db.query(Alert).filter(Alert.timestamp >= one_hour_ago).all()
+
+
+        alerts_in_range = db.query(Alert).filter(Alert.timestamp >= time_range_start).all()
         timeline_dict = {}
-        for a in alerts_last_hour:
+        for a in alerts_in_range:
             minute_key = a.timestamp.strftime("%Y-%m-%dT%H:%M:00Z")
-            timeline_dict[minute_key] = timeline_dict.get(minute_key, 0) + 1
-            
-        attack_timeline = [{"time": k, "count": v} for k, v in sorted(timeline_dict.items())]
+            if minute_key not in timeline_dict:
+                timeline_dict[minute_key] = {"count": 0, "threats": []}
+            timeline_dict[minute_key]["count"] += 1
+            timeline_dict[minute_key]["threats"].append({
+                "type": a.alert_type,
+                "severity": a.severity,
+                "source_ip": a.source_ip,
+                "mitre": a.mitre_tactic
+            })
+
+        attack_timeline = [{"time": k, "count": v["count"], "threats": v["threats"]} for k, v in sorted(timeline_dict.items())]
         
         
-        recent_logs = db.query(LogEntry).order_by(LogEntry.timestamp.desc()).limit(100).all()
+        recent_logs = db.query(LogEntry).filter(LogEntry.timestamp >= time_range_start).all()
         features = [extract_features(l.message) for l in recent_logs]
         assessment = VulnerabilityAssessment().assess(features)
         _persist_vulnerability_findings(db, assessment["findings"])
-        vulnerability_summary = _build_vulnerability_summary(db)
+        vulnerability_summary = assessment
         predictive = PredictiveAnalytics().predict_risk()
         
         return jsonify({
@@ -148,7 +161,6 @@ def get_dashboard_data():
 def manual_scan():
     """Manual log scan endpoint for debugging."""
     from .threat_detection import ThreatDetector
-    from .gemini_client import GeminiAnalyzer
     
     log_text = request.json.get("log_text", "") if request.is_json else ""
     if not log_text:
@@ -157,12 +169,16 @@ def manual_scan():
     entries = [log_text]
     features = [extract_features(entry) for entry in entries]
     
-    detections = ThreatDetector().detect(features)
+    detector = ThreatDetector()
+    detections = detector.detect(features)
     assessment = VulnerabilityAssessment().assess(features)
-    gemini_analysis = GeminiAnalyzer().analyze_log(log_text)
+    ml_analysis = detector.local_analyze_log(log_text)
 
     db = SessionLocal()
     try:
+        # Record the manual scanned log entry in the database
+        entry = LogEntry(message=log_text, source="manual", level="INFO")
+        db.add(entry)
         _persist_vulnerability_findings(db, assessment["findings"])
     finally:
         db.close()
@@ -171,8 +187,27 @@ def manual_scan():
         "detections": detections,
         "assessment": assessment,
         "aggregate": aggregate_window(features),
-        "gemini_analysis": gemini_analysis
+        "llama_analysis": ml_analysis,
+        "ml_analysis": ml_analysis
     })
+
+@api.route("/upload-code", methods=["POST"])
+def upload_code():
+    """Accept a source code file upload and run Sonar-like analysis."""
+    analyzer = SonarAnalyzer()
+    if "code_file" not in request.files:
+        return jsonify({"error": "No code_file uploaded."}), 400
+
+    file = request.files["code_file"]
+    filename = file.filename or "uploaded_code"
+    try:
+        content = file.read().decode("utf-8", errors="replace")
+    except Exception as e:
+        return jsonify({"error": f"Unable to read uploaded file: {e}"}), 400
+
+    report = analyzer.analyze_code(filename, content)
+    return jsonify(report)
+
 
 @api.route("/export/vulnerabilities", methods=["GET"])
 def export_vulnerabilities_csv():
@@ -222,7 +257,7 @@ def export_excel():
             "Source IP": a.source_ip,
             "Confidence": f"{a.confidence:.2f}",
             "MITRE Tactic": a.mitre_tactic,
-            "AI Analysis": a.gemini_summary or "N/A",
+            "AI Analysis": a.ai_summary or "N/A",
             "Raw Description": a.description
         } for a in alerts]
 

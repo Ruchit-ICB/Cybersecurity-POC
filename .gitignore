@@ -20,6 +20,12 @@ env/
 
 # Serialised models
 models/*.joblib
+models/
+*.gguf
+
+# Debug files
+tmp_*.txt
+tmp_*.py
 
 # Logs
 *.log

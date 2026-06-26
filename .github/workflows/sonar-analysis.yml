@@ -1,0 +1,65 @@
+name: Sonar-like Code Analysis
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  sonar_analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Sonar-like analysis on source files
+        run: |
+          python - <<'PY'
+import os
+from cybersec_platform.sonar_analyzer import SonarAnalyzer
+
+analyzer = SonarAnalyzer()
+base = os.getcwd()
+extensions = {'.py', '.js', '.ts', '.java', '.html', '.css'}
+results = []
+for root, _, files in os.walk(base):
+    if '.git' in root or '__pycache__' in root or root.startswith(os.path.join(base, '.github')):
+        continue
+    for name in files:
+        if os.path.splitext(name)[1].lower() in extensions:
+            path = os.path.join(root, name)
+            with open(path, 'r', encoding='utf-8', errors='replace') as f:
+                content = f.read()
+            report = analyzer.analyze_code(name, content)
+            if report['summary']['bugs'] or report['summary']['vulnerabilities'] or report['summary']['maintainability_issues']:
+                results.append((path, report))
+
+if not results:
+    print('✅ No issues found by Sonar-like analysis.')
+    raise SystemExit(0)
+
+print('Sonar-like issues detected:')
+for path, report in results:
+    print(f'\nFile: {path}')
+    print(f"Bugs: {report['summary']['bugs']}, Vulnerabilities: {report['summary']['vulnerabilities']}, Maintainability: {report['summary']['maintainability_issues']}")
+    for issue in report['issues']:
+        print(f"  - [{issue['category']}] {issue['severity']} at line {issue['line']}: {issue['description']}")
+
+# Fail if critical issues are found
+critical = any(issue['severity'] == 'Critical' for _, report in results for issue in report['issues'])
+if critical:
+    print('\n❌ Critical issues found. Failing workflow.')
+    raise SystemExit(1)
+PY

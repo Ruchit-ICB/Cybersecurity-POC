@@ -1,72 +1,100 @@
-# 🛡️ NexusSec — Enterprise Cybersecurity Analytics Platform
+# NexusSec — Enterprise Cybersecurity Analytics Platform
 ## Complete Technical Documentation
 
-**Version:** 1.0  
+**Version:** 1.1  
 **Classification:** Internal  
-**Generated:** June 24, 2026  
+**Last Updated:** June 26, 2026  
 
 ---
 
 ## 1. Executive Summary
-NexusSec is a production-ready, enterprise-grade Security Operations Center (SOC) analytics platform designed to continuously ingest, analyse, and respond to cybersecurity threats in real time. Built on Python/Flask with a modular architecture, it integrates machine-learning threat detection, Gemini AI-powered analysis, automated data ingestion from Grafana/Loki/Prometheus, and a modern dark-mode web dashboard — all backed by a persistent SQLite database.
 
-The platform replaces simple proof-of-concept (POC) log scanning with a scalable pipeline capable of detecting 40+ attack categories, providing real-time alerts, vulnerability assessments, predictive risk forecasting, and one-click Excel report exports.
+NexusSec is an enterprise-grade Security Operations Center (SOC) analytics platform designed to continuously ingest, analyse, and respond to cybersecurity threats in real time. Built on Python and Flask with a modular architecture, it integrates:
+
+- **Rule-based and ML threat detection** (40+ MITRE-mapped signatures, Isolation Forest, Random Forest)
+- **Local AI analysis** (rule-based expert matrix — no external API keys required)
+- **Automated log ingestion** from mock Grafana/Loki/Prometheus sources (replaceable with live endpoints)
+- **Vulnerability assessment** with CVE matching and organisational risk scoring
+- **Predictive risk forecasting** based on recent alert and system trends
+- **Sonar-like static code analysis** for bugs, vulnerabilities, and maintainability issues
+- **A modern dark-mode web dashboard** with live polling, manual log scanning, and export tools
+
+All data is persisted in a SQLite database (PostgreSQL-ready via SQLAlchemy). The platform supports Excel and CSV exports, model evaluation against labelled datasets, and a GitHub Actions workflow for automated code quality checks.
 
 ---
 
 ## 2. System Architecture
+
 NexusSec follows the Flask Application Factory pattern with clearly separated concerns across modules. The high-level data flow is:
 
-`Mock Grafana/Loki/Prometheus APIs` ➔ `Log Ingestor (APScheduler)` ➔ `Parser` ➔ `Feature Engineering` ➔ `Threat Detection Engine (ML + Signatures)` ➔ `SQLite Database` ➔ `REST API` ➔ `Dashboard Frontend`
+```
+Mock Grafana/Loki/Prometheus APIs
+  → Log Ingestor (APScheduler)
+  → Parser
+  → Feature Engineering
+  → Threat Detection Engine (ML + Signatures)
+  → SQLite Database
+  → REST API
+  → Dashboard Frontend
+```
 
 ### 2.1 Component Diagram
 
 | Component | Technology | Responsibility |
 |---|---|---|
-| **Frontend (Browser)** | HTML / CSS / Vanilla JS | Polls `/api/dashboard` every 3s, renders charts and threat tables. |
-| **Flask Web Server** | Python 3.13 / Flask 3.x | Serves static files, API endpoints, and the main template. |
-| **REST API Layer** | `cybersec_platform/api.py` | 5 endpoints: dashboard, scan, export, start/stop-ingestion. |
-| **Background Scheduler** | APScheduler 3.x | Polls mock APIs every 10–15 s, saves data to DB. |
+| **Frontend (Browser)** | HTML / CSS / Vanilla JS / Chart.js | Polls `/api/dashboard` every 3 s; renders charts, threat tables, manual scan, and code upload UI. |
+| **Flask Web Server** | Python 3.11+ / Flask 3.x | Serves static files, API endpoints, and the main template. |
+| **REST API Layer** | `cybersec_platform/api.py` | 8 endpoints: dashboard, scan, code upload, exports, start/stop ingestion. |
+| **Background Scheduler** | APScheduler 3.x | Polls mock Loki every 10 s and Prometheus every 15 s; writes to DB. |
 | **Threat Detection** | Scikit-learn + RegEx | 40+ MITRE-mapped signatures + Isolation Forest + Random Forest. |
-| **Gemini AI** | google-genai SDK 2.10+ | Analyses high/critical alerts & manual log scans. |
-| **Database** | SQLAlchemy + SQLite | Stores logs, alerts, metrics, vulnerabilities, system health. |
+| **Local Analysis Engine** | Heuristics + expert matrix | Generates threat explanations and mitigations without external API calls. |
+| **Sonar Analyzer** | Regex rule engine | Static analysis of uploaded source files for bugs, vulnerabilities, and maintainability. |
+| **Database** | SQLAlchemy + SQLite | Stores logs, alerts, metrics, vulnerabilities, and system health. |
 
 ---
 
 ## 3. Repository File Structure
+
 ```text
 Cybersecurity POC/
 ├── run.py                          # Application entry point
 ├── main.py                         # Legacy CLI entry (retained for reference)
+├── evaluate_model.py               # CLI tool for ML evaluation against labelled CSV
+├── evaluation_report.md            # Sample output from model evaluation
+├── generate_docs.py                # Script to regenerate NexusSec_Documentation.docx
 ├── requirements.txt                # Python dependencies
 ├── cybersec.db                     # SQLite data store (auto-created)
-├── generate_docs.py                # Script that generated the Word Document
-├── NexusSec_Documentation.docx     # Word Document (binary format)
-├── NexusSec_Documentation.md       # Markdown Document (plain text format)
+├── NexusSec_Documentation.md       # This document
+├── NexusSec_Documentation.docx     # Word export (generated by generate_docs.py)
+├── .github/
+│   └── workflows/
+│       └── sonar-analysis.yml      # CI: Sonar-like static analysis on push/PR
 ├── cybersec_platform/              # Core application package
 │   ├── __init__.py
 │   ├── app.py                      # Flask app factory
 │   ├── api.py                      # REST endpoints
-│   ├── config.py                   # Configuration dataclass
+│   ├── config.py                   # Configuration (env vars + optional JSON)
 │   ├── database.py                 # SQLAlchemy ORM models
 │   ├── ingestion.py                # Background polling & pipeline
 │   ├── integrations.py             # Mock Grafana/Loki/Prometheus clients
 │   ├── parsing.py                  # Multi-format log parser
 │   ├── feature_engineering.py      # Feature extraction & normalisation
 │   ├── models.py                   # ML model wrappers (IsoForest, RF)
-│   ├── threat_detection.py         # Unified detection engine
+│   ├── threat_detection.py         # Unified detection & local analysis engine
 │   ├── vulnerability_assessment.py # CVE risk scoring
 │   ├── predictive_analytics.py     # Trend forecasting
-│   ├── gemini_client.py            # Google Gemini AI integration
+│   ├── sonar_analyzer.py           # Sonar-like static code analysis
+│   ├── classifier.py               # Threat classification helpers
 │   └── utils.py                    # Shared helpers
 ├── static/
 │   ├── dashboard.css               # Dark-mode stylesheet
 │   └── dashboard.js                # Frontend logic & API polling
 ├── templates/
 │   └── index.html                  # Main SPA template
-└── tests/
-    ├── test_feature_engineering.py
-    └── test_parsing.py
+├── tests/
+│   ├── test_feature_engineering.py
+│   └── test_parsing.py
+└── models/                         # Optional local LLM model files (GGUF)
 ```
 
 ---
@@ -74,31 +102,44 @@ Cybersecurity POC/
 ## 4. Module Documentation
 
 ### 4.1 `database.py` — Data Persistence Layer
+
 Defines all SQLAlchemy ORM models and initialises the SQLite database. The global `SessionLocal` factory is imported by all modules needing database access.
 
 | Model | Table | Purpose |
 |---|---|---|
-| `LogEntry` | `log_entries` | Raw ingested log messages from Loki/manual scan. |
-| `Alert` | `alerts` | Detected threats with severity, MITRE tactic, and Gemini AI summary. |
+| `LogEntry` | `log_entries` | Raw ingested log messages from Loki or manual scan. |
+| `Alert` | `alerts` | Detected threats with severity, MITRE tactic, and AI analysis summary. |
 | `Metric` | `metrics` | Time-series Prometheus metrics (CPU, memory, network). |
-| `Vulnerability` | `vulnerabilities` | Known CVEs with CVSS scores and mitigations. |
+| `Vulnerability` | `vulnerabilities` | Known CVEs and system findings with CVSS scores and mitigations. |
 | `SystemHealth` | `system_health` | Aggregated system resource snapshots. |
 
+**Note:** The `Alert.ai_summary` field is mapped to the legacy DB column `gemini_summary` for backward compatibility.
+
 ### 4.2 `ingestion.py` — Background Pipeline
+
 Implements the `LogIngestor` singleton that manages an `APScheduler` instance. Two recurring jobs run in background threads:
-- **`poll_loki()`** (runs every 10s): Fetches 20 log lines from `LokiClient`, extracts features, runs `ThreatDetector`, optionally calls Gemini for High/Critical alerts, and saves results to DB.
-- **`poll_prometheus()`** (runs every 15s): Fetches system metrics from `PrometheusClient`, and saves a `SystemHealth` snapshot to DB.
+
+- **`poll_loki()`** (every 10 s): Fetches 20 log lines from `LokiClient`, extracts features, runs `ThreatDetector`, generates local security analysis for High/Critical alerts, runs vulnerability assessment, and saves results to DB.
+- **`poll_prometheus()`** (every 15 s): Fetches system metrics from `PrometheusClient` and saves a `SystemHealth` snapshot to DB.
+
+Ingestion starts automatically when the API blueprint is loaded.
 
 ### 4.3 `integrations.py` — Mock API Clients
-Provides realistic mock implementations of `GrafanaClient`, `LokiClient`, and `PrometheusClient`. 
-- The `LokiClient` generates logs from a library of 50+ attack templates (12% attack rate) and 10 benign templates.
-- The `PrometheusClient` simulates CPU/memory spikes (8% chance) and network exfiltration anomalies (3% chance).
-- *To connect to a live Grafana/Loki/Prometheus stack, replace these classes with real HTTP calls.*
+
+Provides realistic mock implementations of `GrafanaClient`, `LokiClient`, and `PrometheusClient`.
+
+- **`LokiClient`**: Generates logs from 50+ attack templates (12% attack rate) and 10 benign templates.
+- **`PrometheusClient`**: Simulates CPU/memory spikes (8% chance) and network exfiltration anomalies (3% chance).
+
+To connect to a live Grafana/Loki/Prometheus stack, replace these classes with real HTTP calls and set the URLs via environment variables (see Section 9.3).
 
 ### 4.4 `threat_detection.py` — Detection Engine
-The `ThreatDetector` class is the core of the platform. It combines two detection strategies:
+
+The `ThreatDetector` class is the core of the platform. It combines several detection and analysis strategies:
+
 - **Rule-Based Signatures:** 40+ compiled RegEx patterns mapped to MITRE ATT&CK technique IDs.
 - **Machine Learning:** Isolation Forest for anomaly detection + Random Forest for multi-class threat classification.
+- **Event-Based Multi-Threat Analysis:** Independent line-by-line parsing ensures multi-threat logs generate separate, unmerged threat objects.
 
 | Attack Category | Detected Threats |
 |---|---|
@@ -113,43 +154,85 @@ The `ThreatDetector` class is the core of the platform. It combines two detectio
 | **Initial Access** | Log4Shell/CVE Exploitation, Supply Chain Attack, Tor/Proxy, Zero-Day |
 | **Discovery/Recon** | API Abuse/Scraping, VPN Abuse |
 
-### 4.5 `gemini_client.py` — Gemini AI Integration
-Uses the official `google-genai` Python SDK to call the `gemini-2.5-flash` model for two use cases:
-- **`analyze_log(log_text)`** ➔ `{probability: int, reason: str}`: Used by the Manual Scan POC endpoint. Returns a 0–100 threat probability and a 1-sentence explanation.
-- **`analyze_alert(threat_type, severity, raw_message)`** ➔ `str`: Called automatically by the ingestion pipeline for High/Critical alerts only. Returns a 2–3 sentence incident summary with impact assessment and mitigation recommendation.
-- *Includes graceful handling of 429 quota errors from the Free Tier API.*
+### 4.5 Local Analysis Engine
 
-### 4.6 `api.py` — REST API Endpoints
+Runs entirely on the host without external API dependencies. Two core methods in `ThreatDetector`:
+
+- **`local_analyze_log(log_text)` → `{probability: int, reason: str}`**  
+  Used by the Manual Scan endpoint. Returns a 0–100 threat probability and a structured explanation based on signature matches and ML anomaly scores.
+
+- **`local_analyze_alert(threat_type, severity, raw_message)` → `str`**  
+  Called automatically by the ingestion pipeline for High/Critical alerts. Returns a 2–3 sentence security summary (attack explanation, impact, mitigation) from a pre-defined 43-threat expert matrix.
+
+### 4.6 `sonar_analyzer.py` — Static Code Analysis
+
+The `SonarAnalyzer` class performs SonarQube-style static analysis on uploaded source files. Supported extensions: `.py`, `.js`, `.ts`, `.java`, `.html`, `.css`.
+
+| Category | Example Rules |
+|---|---|
+| **Bug** | Bare `except:` clauses, mutable default arguments, loose equality in JS |
+| **Vulnerability** | `eval()`, hardcoded secrets, `subprocess`/`os.system`, plain HTTP URLs |
+| **Maintainability** | TODO/FIXME markers, lines > 120 chars, files > 500 lines, high comment density |
+
+Returns a structured report with per-issue line numbers, severity, category, and a summary count.
+
+### 4.7 `api.py` — REST API Endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
 | `POST` | `/api/start-ingestion` | Start the background APScheduler ingestion loop. |
 | `POST` | `/api/stop-ingestion` | Stop the background APScheduler ingestion loop. |
-| `GET` | `/api/dashboard` | Returns JSON: `live_threats`, `system_health`, `attack_timeline`, `vulnerability_summary`, `predictive_risk`. |
-| `POST` | `/api/scan` | Manual log scan: body `{log_text}`. Returns detections, assessment, and `gemini_analysis`. |
-| `GET` | `/api/export/excel` | Generates and downloads all alerts as `security_alerts_export.xlsx`. |
+| `GET` | `/api/dashboard` | Live dashboard data. Accepts `?time_range=<minutes>` (default 60). |
+| `POST` | `/api/scan` | Manual log scan. Body: `{ "log_text": "..." }`. |
+| `POST` | `/api/upload-code` | Upload a source file for Sonar-like analysis. Form field: `code_file`. |
+| `GET` | `/api/export/excel` | Download all alerts as `security_alerts_export.xlsx`. |
+| `GET` | `/api/export/vulnerabilities` | Download persisted CVE findings as `vulnerabilities_export.csv`. |
 
-### 4.7 `parsing.py` — Log Parsing
-Auto-detects the format of incoming log lines using heuristic probing and regex. Supported formats: JSON (structured), Apache/Nginx Combined Log, Syslog (RFC 5424 & 3164), Key=Value pairs, and plain text. Normalises all formats into a common Python dict with fields: `timestamp`, `level`, `source_ip`, `message`, `raw`.
+### 4.8 `parsing.py` — Log Parsing
 
-### 4.8 `feature_engineering.py` — Feature Extraction
-Converts parsed log dicts into numerical feature vectors for the ML pipeline. Extracted features include: `message_length`, `status_code`, `bytes_sent`, `cpu`, `memory`, `network_tx`, `network_rx`, `source_ip` (encoded), `log_level` (encoded), `hour_of_day`, `day_of_week`.
+Auto-detects log format using heuristic probing and regex. Supported formats:
 
-### 4.9 `models.py` — Machine Learning Models
+- JSON (structured)
+- Apache/Nginx Combined Log
+- Syslog (RFC 5424 and 3164)
+- Key=Value pairs
+- Plain text
+
+Normalises all formats into a common dict: `timestamp`, `level`, `source_ip`, `message`, `raw`.
+
+### 4.9 `feature_engineering.py` — Feature Extraction
+
+Converts parsed log dicts into numerical feature vectors for the ML pipeline:
+
+`message_length`, `status_code`, `bytes_sent`, `cpu`, `memory`, `network_tx`, `network_rx`, `source_ip` (encoded), `log_level` (encoded), `hour_of_day`, `day_of_week`.
+
+### 4.10 `models.py` — Machine Learning Models
 
 | Class | Algorithm | Role |
 |---|---|---|
-| `AnomalyDetector` | IsolationForest (scikit-learn) | Unsupervised anomaly detection. Flags statistical outliers. |
-| `ThreatClassifier` | RandomForestClassifier | Multi-class supervised. Classifies threat type. |
-| `XGBoostClassifier` | XGBoost | Stub for future integration. |
-| `LightGBMClassifier`| LightGBM | Stub for future integration. |
-| `LSTMDetector` | PyTorch LSTM | Stub for sequence-based detection. |
+| `AnomalyDetector` | IsolationForest (scikit-learn) | Unsupervised anomaly detection; flags statistical outliers. |
+| `ThreatClassifier` | RandomForestClassifier | Multi-class supervised threat type classification. |
+| `XGBoostClassifier` | XGBoost | Architectural stub for future integration. |
+| `LightGBMClassifier` | LightGBM | Architectural stub for future integration. |
+| `LSTMDetector` | PyTorch LSTM | Architectural stub for sequence-based detection. |
 
-### 4.10 `vulnerability_assessment.py` — Vulnerability Assessment
-Analyses incoming feature batches to identify known-vulnerable software versions (e.g. Apache 2.4.49, Log4j 2.14.1) from a local CVE database. Computes a global 0–100 Organisational Risk Score based on the CVSS scores of matched CVEs.
+### 4.11 `vulnerability_assessment.py` — Vulnerability Assessment
 
-### 4.11 `predictive_analytics.py` — Predictive Analytics
-Analyses recent database trends (CPU spikes, failed login rates, alert volumes over the last hour) to forecast the probability and category of future attacks. Provides actionable mitigation recommendations.
+Analyses incoming feature batches to identify known-vulnerable software versions (e.g. Apache 2.4.49, Log4j 2.14.1) or elevated system error rates from a local CVE database. Computes a global 0–100 Organisational Risk Score based on matched CVSS scores. Findings are persisted to the `vulnerabilities` table via the API layer.
+
+### 4.12 `predictive_analytics.py` — Predictive Analytics
+
+Analyses recent database trends (CPU spikes, failed login rates, alert volumes over the last hour) to forecast the probability and category of future attacks, with actionable mitigation recommendations.
+
+### 4.13 `evaluate_model.py` — Model Evaluation CLI
+
+Evaluates the threat detection engine against a labelled CSV dataset:
+
+```bash
+python evaluate_model.py --dataset path/to/logs.csv --output evaluation_report.md
+```
+
+The CSV must contain columns: `log_entry`, `label`. Outputs precision, recall, F1 score, a classification report, and a confusion matrix in Markdown format.
 
 ---
 
@@ -157,60 +240,78 @@ Analyses recent database trends (CPU spikes, failed login rates, alert volumes o
 
 | Table | Column | Type | Description |
 |---|---|---|---|
-| **`alerts`** | `id` | INTEGER | Primary Key. |
+| **`alerts`** | `id` | INTEGER | Primary key. |
 | | `timestamp` | DATETIME | Indexed; when the alert was generated. |
-| | `alert_type` | VARCHAR(100) | e.g. 'SQL Injection', 'Ransomware Activity'. |
-| | `severity` | VARCHAR(20) | low \| medium \| high \| critical. |
-| | `description` | TEXT | Human-readable description of the threat. |
+| | `alert_type` | VARCHAR(100) | e.g. `SQL Injection`, `Ransomware Activity`. |
+| | `severity` | VARCHAR(20) | `low` \| `medium` \| `high` \| `critical`. |
+| | `description` | TEXT | Human-readable threat description. |
 | | `source_ip` | VARCHAR(50) | Originating IP address. |
 | | `confidence` | FLOAT | 0.0–1.0 ML confidence score. |
 | | `mitre_tactic` | VARCHAR(100) | Comma-separated MITRE ATT&CK technique IDs. |
-| | `gemini_summary` | TEXT | AI-generated incident summary (nullable). |
-| **`log_entries`** | `id` | INTEGER | Primary Key. |
+| | `gemini_summary` | TEXT | Local AI-generated incident summary (nullable). Exposed as `ai_summary` in API responses. |
+| **`log_entries`** | `id` | INTEGER | Primary key. |
 | | `timestamp` | DATETIME | When the log was ingested. |
-| | `source` | VARCHAR(50) | e.g. 'loki', 'manual'. |
-| | `level` | VARCHAR(20) | INFO \| WARN \| ERROR \| CRITICAL. |
+| | `source` | VARCHAR(50) | e.g. `loki`, `manual`. |
+| | `level` | VARCHAR(20) | `INFO` \| `WARN` \| `ERROR` \| `CRITICAL`. |
 | | `message` | TEXT | Raw log message text. |
 | | `raw_data` | JSON | Parsed structured metadata. |
-| **`system_health`** | `id` | INTEGER | Primary Key. |
+| **`vulnerabilities`** | `id` | INTEGER | Primary key. |
+| | `cve_id` | VARCHAR(50) | Unique CVE identifier. |
+| | `description` | TEXT | CVE description. |
+| | `cvss_score` | FLOAT | CVSS base score. |
+| | `severity` | VARCHAR(20) | Severity label. |
+| | `mitigation` | TEXT | Recommended remediation. |
+| **`system_health`** | `id` | INTEGER | Primary key. |
+| | `timestamp` | DATETIME | Snapshot time. |
 | | `cpu_usage` | FLOAT | CPU utilisation % (0–100). |
 | | `memory_usage` | FLOAT | RAM utilisation % (0–100). |
 | | `network_tx` | FLOAT | Outbound bytes. |
 | | `network_rx` | FLOAT | Inbound bytes. |
-| | `active_connections`| INTEGER | Open TCP connections. |
+| | `active_connections` | INTEGER | Open TCP connections. |
 
 ---
 
 ## 6. Frontend Dashboard
-The frontend is a single-page application (SPA) built with vanilla HTML, CSS, and JavaScript. It auto-polls `/api/dashboard` every 3 seconds for live data updates.
 
-- **POC Dashboard:** Main landing tab showing live metrics, charts, alerts, and the Manual Scan form.
-- **Metric Cards:** 4 live metrics: Total Threats (1h), High Severity, Critical Severity, and Org Risk Score.
-- **Attack Timeline:** Chart.js bar chart showing attacks per minute over the last 60 minutes.
-- **Manual Log Analysis:** Paste raw logs ➔ click 'Scan with Gemini AI' ➔ view threat probability & raw classifications.
-- **Live Threat Alerts:** Table of latest 15 detected threats. High/Critical severity rows display the Gemini AI analysis inline.
-- **Vulnerability Feed:** List of detected CVEs matched against incoming logs.
-- **Predictive Risk:** AI forecast of the next likely attack type and mitigation recommendation.
-- **Export Excel Button:** Downloads all alerts as `security_alerts_export.xlsx` via `/api/export/excel`.
+The frontend is a single-page application built with vanilla HTML, CSS, and JavaScript. It polls `/api/dashboard?time_range=<minutes>` every 3 seconds.
+
+### 6.1 Dashboard Sections
+
+| Section | Description |
+|---|---|
+| **Metric Cards** | CPU, memory, active connections, and predictive risk forecast. |
+| **Attack Timeline** | Chart.js bar chart with time-range filters: 30 min, 1 h, 3 h, 24 h. |
+| **Manual Log Analysis** | Paste raw logs → Scan with ML Engine → view probability, incident cards, and JSON output. |
+| **Code Quality Scanner** | Upload a source file → Sonar-like analysis → bugs, vulnerabilities, and maintainability table. |
+| **Live Threat Alerts** | Latest 15 detected threats with Export Excel link. |
+| **Vulnerability Findings** | CVE table with Export Vulnerabilities (CSV) link. |
 
 ---
 
 ## 7. API Reference
 
 ### 7.1 GET `/api/dashboard`
-Returns live JSON data for dashboard rendering:
+
+Query parameters:
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `time_range` | integer | 60 | Lookback window in minutes for timeline and vulnerability assessment. |
+
+Response:
+
 ```json
 {
   "live_threats": [
     {
       "id": 1,
-      "timestamp": "2026-06-24T14:30:00Z",
+      "timestamp": "2026-06-26T14:30:00Z",
       "type": "SQL Injection",
       "severity": "high",
       "description": "SQL Injection attempt detected in query parameter.",
       "source_ip": "192.168.1.45",
       "mitre": "T1190",
-      "gemini_summary": "AI summary details..."
+      "ai_summary": "Detected SQL injection signatures..."
     }
   ],
   "system_health": {
@@ -219,11 +320,16 @@ Returns live JSON data for dashboard rendering:
     "active_connections": 12
   },
   "attack_timeline": [
-    { "time": "14:30", "count": 1 }
+    {
+      "time": "2026-06-26T14:30:00Z",
+      "count": 1,
+      "threats": [{ "type": "SQL Injection", "severity": "high", "source_ip": "192.168.1.45", "mitre": "T1190" }]
+    }
   ],
   "vulnerability_summary": {
-    "risk_score": 45,
-    "cves": []
+    "findings": [],
+    "overall_risk_score": 45.0,
+    "risk_level": "Medium"
   },
   "predictive_risk": {
     "probability": 75,
@@ -235,13 +341,17 @@ Returns live JSON data for dashboard rendering:
 ```
 
 ### 7.2 POST `/api/scan`
-Request Body:
+
+Request:
+
 ```json
 {
-  "log_text": "192.168.1.1 - - [24/Jun/2026] \"GET /index.php?id=1 UNION SELECT... HTTP/1.1\" 200 4500"
+  "log_text": "192.168.1.1 - - [26/Jun/2026] \"GET /index.php?id=1 UNION SELECT... HTTP/1.1\" 200 4500"
 }
 ```
-Response Body:
+
+Response:
+
 ```json
 {
   "detections": [
@@ -249,74 +359,176 @@ Response Body:
       "threat_type": "SQL Injection",
       "severity": "high",
       "confidence": 0.98,
-      "mitre_tactics": "T1190",
+      "mitre_tactics": ["T1190"],
       "signatures": ["SQLi Pattern Detected"]
     }
   ],
   "assessment": {
-    "risk_score": 85,
-    "cves": []
+    "findings": [],
+    "overall_risk_score": 85.0,
+    "risk_level": "Critical"
   },
   "aggregate": {},
-  "gemini_analysis": {
+  "ml_analysis": {
     "probability": 95,
-    "reason": "SQL injection pattern matched in query URI."
+    "reason": "Security threat 'SQL Injection' detected in logs."
+  },
+  "llama_analysis": {
+    "probability": 95,
+    "reason": "Security threat 'SQL Injection' detected in logs."
   }
 }
 ```
 
-### 7.3 GET `/api/export/excel`
-Returns a binary Excel `.xlsx` spreadsheet download containing all logged threat alerts with their timestamps, severities, classifications, source IPs, confidence levels, MITRE Tactics, raw messages, and the detailed Gemini AI analysis summaries.
+### 7.3 POST `/api/upload-code`
+
+Multipart form upload. Field name: `code_file`. Accepts `.py`, `.js`, `.ts`, `.java`, `.html`, `.css`.
+
+Response:
+
+```json
+{
+  "filename": "example.py",
+  "total_lines": 3,
+  "issue_counts": { "Bug": 1, "Vulnerability": 1, "Maintainability": 1 },
+  "issues": [
+    {
+      "category": "Vulnerability",
+      "severity": "Critical",
+      "description": "Use of eval() may lead to code execution vulnerabilities.",
+      "line": 12,
+      "snippet": "result = eval(user_input)"
+    }
+  ],
+  "summary": {
+    "bugs": 1,
+    "vulnerabilities": 1,
+    "maintainability_issues": 1
+  }
+}
+```
+
+### 7.4 GET `/api/export/excel`
+
+Returns a binary `.xlsx` download: `security_alerts_export.xlsx`.
+
+Columns: Timestamp, Threat Type, Severity, Source IP, Confidence, MITRE Tactic, AI Analysis, Raw Description.
+
+### 7.5 GET `/api/export/vulnerabilities`
+
+Returns a CSV download: `vulnerabilities_export.csv`.
+
+Columns: CVE ID, Description, CVSS Score, Severity, Mitigation.
 
 ---
 
 ## 8. Dependencies
-All required Python packages are specified in `requirements.txt`:
-- `flask>=3.0` (Web Server Framework)
-- `scikit-learn>=1.4` (Unsupervised & Supervised ML models)
-- `joblib>=1.3` (Model Persistence)
-- `numpy>=1.26` (Data Operations)
-- `SQLAlchemy>=2.0` (Object Relational Mapper)
-- `APScheduler>=3.10` (Background Jobs)
-- `xgboost>=2.0` & `lightgbm>=4.0` (Future-proofing stubs)
-- `google-genai>=0.1` (Official Google Gemini API SDK)
-- `pandas>=2.0` (Dataframe manipulation)
-- `openpyxl>=3.1` (Excel Writer Engine)
-- `python-docx` (Word generation library)
+
+All required Python packages are in `requirements.txt`:
+
+| Package | Purpose |
+|---|---|
+| `flask>=3.0` | Web server framework |
+| `scikit-learn>=1.4` | IsolationForest, RandomForestClassifier |
+| `joblib>=1.3` | Model persistence |
+| `numpy>=1.26` | Numerical operations |
+| `SQLAlchemy>=2.0` | ORM and database abstraction |
+| `APScheduler>=3.10` | Background job scheduling |
+| `xgboost>=2.0` / `lightgbm>=4.0` | Future ML model stubs |
+| `llama-cpp-python>=0.1.0` | Optional local LLM integration (configure via env) |
+| `pandas>=2.0` | DataFrame processing and Excel export |
+| `openpyxl>=3.1` | Excel `.xlsx` generation |
+
+For documentation generation: `python-docx` (used by `generate_docs.py`, not in `requirements.txt`).
 
 ---
 
 ## 9. Setup & Running the Platform
 
 ### 9.1 Prerequisites
+
 - Python 3.11 or later
-- pip (Python package manager)
-- A valid Google Gemini API key
+- pip
 
 ### 9.2 Installation
+
 ```bash
-# 1. Navigate to the project directory
+# Navigate to the project directory
 cd "Cybersecurity POC"
 
-# 2. Install all dependencies
+# Install dependencies
 pip install -r requirements.txt
 
-# 3. Run the server
+# Start the server
 python run.py
 
-# 4. Open in browser
-# Navigate to: http://127.0.0.1:5000
+# Open in browser
+# http://127.0.0.1:5000
+```
+
+Optional debug mode:
+
+```bash
+set FLASK_DEBUG=1
+python run.py
 ```
 
 ### 9.3 Configuration
-The Gemini API key is configured in `cybersec_platform/gemini_client.py`. For production use, configure it via environment variables:
-```python
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "your-api-key-here")
+
+Configuration is managed by `cybersec_platform/config.py`. Defaults can be overridden via environment variables or an optional JSON config file.
+
+| Environment Variable | Default | Description |
+|---|---|---|
+| `GRAFANA_URL` | `http://localhost:3000` | Grafana base URL |
+| `LOKI_URL` | `http://localhost:3100` | Loki base URL |
+| `PROMETHEUS_URL` | `http://localhost:9090` | Prometheus base URL |
+| `MODEL_STORE_PATH` | `./models` | Directory for ML/LLM model files |
+| `LLAMA_MODEL_PATH` | `./models/llama_model.gguf` | Path to optional GGUF model |
+| `LLAMA_NUM_THREADS` | `4` | CPU threads for local LLM inference |
+| `INGEST_POLL_INTERVAL` | `30` | Ingestion poll interval (seconds) |
+| `INGEST_BATCH_SIZE` | `500` | Batch size for ingestion |
+| `LOG_LEVEL` | `INFO` | Application log level |
+| `FLASK_DEBUG` | `0` | Set to `1` to enable Flask debug mode |
+
+No external API keys are required for core platform operation.
+
+### 9.4 Running Tests
+
+```bash
+python -m pytest tests/
 ```
+
+### 9.5 Evaluating the Detection Engine
+
+```bash
+python evaluate_model.py --dataset labelled_logs.csv --output evaluation_report.md
+```
+
+### 9.6 Regenerating the Word Document
+
+```bash
+pip install python-docx
+python generate_docs.py
+```
+
+Produces `NexusSec_Documentation.docx`.
 
 ---
 
-## 10. Complete Attack Detection Catalogue
+## 10. CI/CD — Sonar-like Code Analysis
+
+The GitHub Actions workflow `.github/workflows/sonar-analysis.yml` runs on push and pull requests to `main`. It:
+
+1. Checks out the repository
+2. Installs Python 3.12 and project dependencies
+3. Walks all `.py`, `.js`, `.ts`, `.java`, `.html`, and `.css` source files
+4. Runs `SonarAnalyzer` on each file
+5. Prints a summary of bugs, vulnerabilities, and maintainability issues
+6. **Fails the build** if any Critical-severity issue is found
+
+---
+
+## 11. Complete Attack Detection Catalogue
 
 | Attack Name | Severity | MITRE ID | Category |
 |---|---|---|---|
@@ -366,26 +578,31 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "your-api-key-here")
 
 ---
 
-## 11. Future Roadmap
+## 12. Future Roadmap
 
 | Feature | Description |
 |---|---|
-| **Replace Mock Clients** | Connect `GrafanaClient`, `LokiClient`, and `PrometheusClient` to actual production endpoints. |
-| **PostgreSQL Migration** | Migrate from SQLite to PostgreSQL via SQLAlchemy connection strings for production volume. |
-| **LSTM / BERT Models** | Train sequence models on historical logs for advanced sequential/behavioural anomaly detection. |
-| **NVD / CISA Feed Sync** | Automate vulnerability updates via scheduled syncing with NVD, MITRE ATT&CK, and CISA feeds. |
-| **SOAR Integration** | Add real-time alerting integrations via webhooks for Slack, Microsoft Teams, JIRA, and PagerDuty. |
-| **Multi-Tenant Support** | Implement secure multi-user role-based access control (RBAC). |
-| **Custom Alert Rules UI** | Add an interactive dashboard tab allowing security analysts to write custom detection rules live. |
-| **Threat Intel Enrichment** | Enrich threat alerts automatically with Geo-IP and reputation feeds (e.g. VirusTotal, IPQS, AbuseIPDB). |
-| **Geo-IP Visualisation** | Render map widgets displaying spatial heatmaps of incoming alerts based on geographic source IPs. |
-| **Kubernetes Deployment** | Deploy as a standard K8s application using Helm charts. |
+| **Replace Mock Clients** | Connect `GrafanaClient`, `LokiClient`, and `PrometheusClient` to production endpoints. |
+| **PostgreSQL Migration** | Migrate from SQLite to PostgreSQL for production volume and concurrency. |
+| **LSTM / BERT Models** | Train sequence models on historical logs for behavioural anomaly detection. |
+| **NVD / CISA Feed Sync** | Automate CVE updates via NVD, MITRE ATT&CK, and CISA KEV feeds. |
+| **SOAR Integration** | Webhook alerting for Slack, Microsoft Teams, JIRA, and PagerDuty. |
+| **Multi-Tenant Support** | Role-based access control (RBAC) for multiple analysts and organisations. |
+| **Custom Alert Rules UI** | Dashboard tab for live custom detection rule authoring. |
+| **Threat Intel Enrichment** | Geo-IP and reputation feeds (VirusTotal, AbuseIPDB). |
+| **Geo-IP Visualisation** | Map widgets for spatial alert heatmaps. |
+| **Kubernetes Deployment** | Helm charts for production deployment with horizontal scaling. |
 
 ---
 
-## 12. Known Limitations
-- **Gemini Quota Limitations:** The Free Tier key has daily limits; requests are queued and throttled gracefully.
-- **Mock Integration Dependencies:** Ingestion modules currently rely on mock server simulation components.
-- **Uncalibrated ML Weights:** Unsupervised models start training with seed data; precision requires real historic datasets.
-- **Concurrency Bottlenecks:** SQLite might run into write lockups under heavy simultaneous requests; PostgreSQL is recommended.
-- **Credential Storage:** The Gemini key in `gemini_client.py` is configured statically; use environment variables in production.
+## 13. Known Limitations
+
+- **Mock Integration Dependencies:** Ingestion currently uses mock Grafana/Loki/Prometheus clients; no real network calls are made by default.
+- **Uncalibrated ML Weights:** Isolation Forest and Random Forest are initialised with seed data; production accuracy requires historical labelled datasets.
+- **SQLite Concurrency:** Write lock contention under heavy load; PostgreSQL is recommended for multi-user deployments.
+- **Sonar Analyzer Scope:** Static analysis is regex-based and heuristic; it is not a substitute for SonarQube or full SAST tooling.
+- **Small Evaluation Dataset:** The bundled `evaluation_report.md` reflects a small sample set; run `evaluate_model.py` against your own labelled data for meaningful metrics.
+
+---
+
+*NexusSec Enterprise Cybersecurity Platform — Internal Documentation — June 2026*

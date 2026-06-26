@@ -7,26 +7,17 @@ from .database import LogEntry, SessionLocal, SystemHealth
 logger = logging.getLogger(__name__)
 
 class PredictiveAnalytics:
-    """Analyzes historical database trends to forecast potential future attacks."""
     
     def predict_risk(self) -> Dict[str, Any]:
         db = SessionLocal()
         try:
             now = datetime.utcnow()
             one_hour_ago = now - timedelta(hours=1)
-            
-            # Fetch recent health metrics
             recent_health = db.query(SystemHealth).filter(SystemHealth.timestamp >= one_hour_ago).all()
-            
-            # Fetch recent logs
             recent_logs = db.query(LogEntry).filter(LogEntry.timestamp >= one_hour_ago).all()
-            
-            # Compute historical heuristics
             cpu_spikes = sum(1 for h in recent_health if h.cpu_usage > 85.0)
             network_spikes = sum(1 for h in recent_health if h.network_tx > 20000.0 or h.network_rx > 20000.0)
             failed_logins = sum(1 for l in recent_logs if "failed" in l.message.lower() and ("password" in l.message.lower() or "login" in l.message.lower()))
-            
-            # Base forecasting logic
             risk_score = 0.0
             attack_category = "None Predicted"
             likelihood = "Low"
@@ -53,7 +44,6 @@ class PredictiveAnalytics:
                 action = "Deploy WAF rate limiting, scale up resources, and investigate malicious processes."
                 
             risk_score = min(100.0, risk_score)
-            
             if risk_score >= 70:
                 likelihood = "High"
             elif risk_score >= 40:

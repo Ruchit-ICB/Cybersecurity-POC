@@ -57,6 +57,25 @@ class AnomalyDetector(ModelPipeline):
         
         return [1 if p == -1 else 0 for p in preds]
 
+    def anomaly_scores(self, X: Any) -> List[float]:
+        """Return normalised anomaly probability in [0, 1] for each sample.
+
+        IsolationForest.decision_function returns negative values for
+        anomalies.  We negate and clip to [0, 1] so that higher = more
+        anomalous, giving a probability-like score the UI can display.
+        """
+        if not self._is_fitted or not HAS_SKLEARN or len(X) == 0:
+            return [0.0] * len(X)
+        X_scaled = self.scaler.transform(X)
+        raw = self.model.decision_function(X_scaled)   # lower / negative = more anomalous
+        # Normalise: map the most-negative score to ~1.0, the most-positive to ~0.0
+        scores = -np.array(raw)                        # flip sign
+        s_min, s_max = scores.min(), scores.max()
+        if s_max - s_min < 1e-9:
+            return [0.5] * len(X)
+        normed = (scores - s_min) / (s_max - s_min)
+        return [round(float(v), 4) for v in normed]
+
 
 class ThreatClassifier(ModelPipeline):
     
@@ -82,6 +101,16 @@ class ThreatClassifier(ModelPipeline):
             return [0.0] * len(X)
         probs = self.model.predict_proba(X)
         return [float(max(p)) for p in probs]
+
+    def predict_proba_full(self, X: Any):
+        """Return the full probability matrix (n_samples × n_classes).
+
+        When the model is unfitted we return a single-column matrix of zeros
+        so that callers can still index safely.
+        """
+        if not self._is_fitted or not HAS_SKLEARN or len(X) == 0:
+            return np.zeros((len(X), 1))
+        return self.model.predict_proba(X)
 
 
 

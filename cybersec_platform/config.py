@@ -38,6 +38,8 @@ class Config:
                 "base_url": os.environ.get("PROMETHEUS_URL", "http://localhost:9090"),
             },
             "model_store": os.environ.get("MODEL_STORE_PATH", "./models"),
+            "llama_model_path": os.environ.get("LLAMA_MODEL_PATH", "./models/llama_model.gguf"),
+            "llama_num_threads": int(os.environ.get("LLAMA_NUM_THREADS", "4")),
             "ingest": {
                 "poll_interval_seconds": int(
                     os.environ.get("INGEST_POLL_INTERVAL", "30")
