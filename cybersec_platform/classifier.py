@@ -114,6 +114,51 @@ INDICATOR_PATTERNS = [
         "severity": "medium",
         "type": "threat",
     },
+    {
+        "name": "High Latency",
+        "pattern": re.compile(
+            r"\b(high latency|latency.*\d{3,}\s*ms|slow response|network delay)\b",
+            re.IGNORECASE,
+        ),
+        "severity": "high",
+        "type": "threat",
+    },
+    {
+        "name": "High Packet Loss",
+        "pattern": re.compile(
+            r"\b(high packet loss|packet loss.*\d+%|data loss|connection unstable)\b",
+            re.IGNORECASE,
+        ),
+        "severity": "high",
+        "type": "threat",
+    },
+    {
+        "name": "Network Outage",
+        "pattern": re.compile(
+            r"\b(network outage|connection failure|service unavailable|network down|connectivity lost)\b",
+            re.IGNORECASE,
+        ),
+        "severity": "critical",
+        "type": "threat",
+    },
+    {
+        "name": "Poor Signal",
+        "pattern": re.compile(
+            r"\b(poor signal|weak signal|signal.*strength.*-\d{2,}|low signal quality)\b",
+            re.IGNORECASE,
+        ),
+        "severity": "medium",
+        "type": "threat",
+    },
+    {
+        "name": "Suspicious Bandwidth",
+        "pattern": re.compile(
+            r"\b(high bandwidth|excessive data transfer|unusual traffic volume|torrenting detected)\b",
+            re.IGNORECASE,
+        ),
+        "severity": "medium",
+        "type": "threat",
+    },
 ]
 
 LOG_LINE_REGEX = re.compile(
