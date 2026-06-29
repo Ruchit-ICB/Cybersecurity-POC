@@ -16,58 +16,103 @@ from typing import Any, Dict, List, Tuple
 
 INDICATOR_PATTERNS = [
     {
-        "name": "SQL Injection attempt",
+        "name": "DDoS Attack",
         "pattern": re.compile(
-            r"\b(union select|select .* from|drop table|or 1=1|--|#)\b",
+            r"\b(syn flood|udp flood|http flood|ddos detected|amplification attack|volumetric attack)\b",
+            re.IGNORECASE,
+        ),
+        "severity": "critical",
+        "type": "threat",
+    },
+    {
+        "name": "DNS Attack",
+        "pattern": re.compile(
+            r"\b(dns tunnel|dns cache poisoning|dns water torture|nxdomain flood|dns exfil)\b",
             re.IGNORECASE,
         ),
         "severity": "high",
-        "type": "vulnerability",
+        "type": "threat",
     },
     {
-        "name": "Cross-site scripting (XSS)",
+        "name": "Botnet Activity",
         "pattern": re.compile(
-            r"(<script>|%3Cscript%3E|javascript:|onerror=|onload=)",
+            r"\b(c2 beacon|botnet activity|mirai botnet|reverse shell|backdoor|tor exit node)\b",
+            re.IGNORECASE,
+        ),
+        "severity": "critical",
+        "type": "threat",
+    },
+    {
+        "name": "Malware Distribution",
+        "pattern": re.compile(
+            r"\b(malware distribution|ransomware|worm propagation|eternalblue|wannacry|fileless malware)\b",
+            re.IGNORECASE,
+        ),
+        "severity": "critical",
+        "type": "threat",
+    },
+    {
+        "name": "Data Exfiltration",
+        "pattern": re.compile(
+            r"\b(data exfiltration|large file transfer|covert channel|steganography|icmp tunneling)\b",
+            re.IGNORECASE,
+        ),
+        "severity": "critical",
+        "type": "threat",
+    },
+    {
+        "name": "Phishing Attack",
+        "pattern": re.compile(
+            r"\b(phishing kit|credential harvesting|password spraying|credential dumping)\b",
             re.IGNORECASE,
         ),
         "severity": "high",
-        "type": "vulnerability",
+        "type": "threat",
     },
     {
-        "name": "Brute-force login activity",
+        "name": "Network Infrastructure Attack",
         "pattern": re.compile(
-            r"\b(failed login|invalid password|authentication failed|account locked)\b",
+            r"\b(bgp hijacking|arp poison|arp spoof|router compromise|mitm)\b",
+            re.IGNORECASE,
+        ),
+        "severity": "critical",
+        "type": "threat",
+    },
+    {
+        "name": "ISP Abuse",
+        "pattern": re.compile(
+            r"\b(spam campaign|proxy abuse|copyright infringement|account sharing|port forwarding abuse)\b",
             re.IGNORECASE,
         ),
         "severity": "medium",
         "type": "threat",
     },
     {
-        "name": "Privilege escalation",
+        "name": "VoIP Attack",
         "pattern": re.compile(
-            r"\b(sudo:|root access|administrator access|privilege escalation)\b",
+            r"\b(voip fraud|tdos attack|sip registration attack|eavesdropping)\b",
+            re.IGNORECASE,
+        ),
+        "severity": "critical",
+        "type": "threat",
+    },
+    {
+        "name": "IoT Attack",
+        "pattern": re.compile(
+            r"\b(iot botnet|smart home abuse|cctv camera compromise|smart meter tampering)\b",
             re.IGNORECASE,
         ),
         "severity": "high",
         "type": "threat",
     },
     {
-        "name": "Malicious file download",
+        "name": "Port Scanning",
         "pattern": re.compile(
-            r"\b(downloaded .*(exe|dll|bin|scr)|malicious payload|ransomware|trojan)\b",
-            re.IGNORECASE,
-        ),
-        "severity": "high",
-        "type": "threat",
-    },
-    {
-        "name": "Credential exposure",
-        "pattern": re.compile(
-            r"\b(password=.*|api[_-]?key|secret|token)\b",
+            r"\b(nmap|masscan|port scan|syn scan|service enumeration|snmp brute force)\b",
             re.IGNORECASE,
         ),
         "severity": "medium",
-        "type": "vulnerability",
+        "type": "threat",
     },
 ]
 
@@ -106,17 +151,28 @@ class SimpleLogClassifier:
 
     def _train(self) -> None:
         training_examples = [
-            ("user logged in successfully", "benign"),
-            ("health check completed", "benign"),
-            ("invalid password for user admin", "threat"),
-            ("authentication failed multiple times", "threat"),
-            ("union select password from users", "vulnerability"),
-            ("<script>alert('xss')</script> detected", "vulnerability"),
-            ("sudo: user mary executed privileged command", "threat"),
-            ("downloaded malicious payload.exe from remote host", "threat"),
-            ("password=secret displayed in logs", "vulnerability"),
-            ("account locked after failed login attempts", "threat"),
-            ("database query finished", "benign"),
+            ("DHCP lease assigned to customer", "benign"),
+            ("DNS query resolved successfully", "benign"),
+            ("BGP route update received", "benign"),
+            ("Connection allowed by firewall", "benign"),
+            ("Bandwidth usage normal", "benign"),
+            ("SIP call established", "benign"),
+            ("ICMP ping response", "benign"),
+            ("HTTP proxy request completed", "benign"),
+            ("SMTP connection established", "benign"),
+            ("IoT device heartbeat", "benign"),
+            ("DDoS SYN flood detected", "threat"),
+            ("DNS tunneling detected", "threat"),
+            ("C2 beacon callback", "threat"),
+            ("Mirai botnet activity", "threat"),
+            ("Ransomware encryption detected", "threat"),
+            ("Data exfiltration detected", "threat"),
+            ("Phishing kit detected", "threat"),
+            ("BGP hijacking attempt", "threat"),
+            ("Spam campaign detected", "threat"),
+            ("VoIP fraud detected", "threat"),
+            ("IoT botnet infection", "threat"),
+            ("Port scan detected", "threat"),
         ]
 
         for text, label in training_examples:
@@ -261,14 +317,20 @@ def summarize_findings(findings: List[Dict[str, Any]]) -> Dict[str, int]:
 
 
 def create_sample_log_text() -> str:
-    """Return a sample log block for demo purposes."""
+    """Return a sample ISP log block for demo purposes."""
     return "\n".join(
         [
-            "2026-06-24T11:14:22Z INFO webserver - User john logged in successfully",
-            "2026-06-24T11:15:00Z ERROR webserver - Invalid password for user admin",
-            "2026-06-24T11:16:05Z WARN webserver - Attempted access with union select from users",
-            "2026-06-24T11:17:42Z ERROR app - <script>alert('xss')</script> detected in request",
-            "2026-06-24T11:18:14Z INFO system - sudo: user mary executed privileged command",
-            "2026-06-24T11:19:33Z ERROR download - downloaded malicious payload.exe from bad.example.com",
+            '2026-06-24T11:14:22Z INFO dhcp - DHCP lease assigned to 192.168.1.100',
+            '2026-06-24T11:15:00Z INFO dns - DNS query resolved for example.com',
+            '2026-06-24T11:16:05Z INFO routing - BGP route update received for 192.0.2.0/24',
+            '2026-06-24T11:17:42Z CRITICAL network - DDoS: SYN flood from 10.0.0.50 — 80,000 packets/second detected',
+            '2026-06-24T11:18:14Z HIGH dns - DNS tunneling: unusually long DNS query from 10.0.0.75',
+            '2026-06-24T11:19:33Z CRITICAL botnet - C2 beacon detected: reverse shell callback to 10.0.0.100',
+            '2026-06-24T11:20:15Z CRITICAL malware - Ransomware encryption detected in customer network',
+            '2026-06-24T11:21:00Z CRITICAL exfil - Data exfiltration detected: 2.4GB outbound transfer to 10.0.0.200',
+            '2026-06-24T11:22:30Z HIGH phishing - Phishing kit detected: 10.0.0.150 hosting credential harvesting page',
+            '2026-06-24T11:23:45Z CRITICAL bgp - BGP hijacking attempt: suspicious route announcement from 10.0.0.175',
+            '2026-06-24T11:24:10Z HIGH voip - VoIP fraud: SIP trunk abuse from 10.0.0.225',
+            '2026-06-24T11:25:00Z HIGH iot - IoT botnet: Mirai infection on customer device 10.0.0.250',
         ]
     )
