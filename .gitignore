@@ -30,6 +30,9 @@ tmp_*.py
 # Logs
 *.log
 
+# Local runtime database
+cybersec.db
+
 # Testing
 .pytest_cache/
 htmlcov/
