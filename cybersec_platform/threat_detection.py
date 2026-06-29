@@ -380,55 +380,6 @@ INDICATOR_PATTERNS = [
         "severity": "medium", "type": "api_abuse", "mitre": "T1190",
         "category": "Network Abuse"
     },
-
-    # ── NETWORK TELEMETRY ANOMALIES ───────────────────────────
-    {
-        "name": "High Latency",
-        "pattern": re.compile(
-            r"(high\s+latency|latency.*\d{3,}\s*ms|slow\s+response|"
-            r"network\s+delay|connection\s+slow|response\s+time.*exceeded)",
-            re.IGNORECASE),
-        "severity": "high", "type": "network_anomaly", "mitre": "T1498",
-        "category": "Network Anomaly"
-    },
-    {
-        "name": "High Packet Loss",
-        "pattern": re.compile(
-            r"(high\s+packet\s+loss|packet\s+loss.*\d+%|data\s+loss|"
-            r"connection\s+unstable|intermittent\s+connectivity)",
-            re.IGNORECASE),
-        "severity": "high", "type": "network_anomaly", "mitre": "T1498",
-        "category": "Network Anomaly"
-    },
-    {
-        "name": "Poor Signal Strength",
-        "pattern": re.compile(
-            r"(poor\s+signal|weak\s+signal|signal.*strength.*-\d{2,}|"
-            r"low\s+signal\s+quality|signal\s+degradation)",
-            re.IGNORECASE),
-        "severity": "medium", "type": "network_anomaly", "mitre": "T1498",
-        "category": "Network Anomaly"
-    },
-    {
-        "name": "Network Outage / Failure",
-        "pattern": re.compile(
-            r"(network\s+outage|connection\s+failure|service\s+unavailable|"
-            r"network\s+down|connectivity\s+lost|no\s+connection|"
-            r"link\s+down|interface\s+down)",
-            re.IGNORECASE),
-        "severity": "critical", "type": "network_anomaly", "mitre": "T1498",
-        "category": "Network Anomaly"
-    },
-    {
-        "name": "Suspicious Bandwidth Usage",
-        "pattern": re.compile(
-            r"(high\s+bandwidth|excessive\s+data\s+transfer|"
-            r"unusual\s+traffic\s+volume|bandwidth\s+anomaly|"
-            r"suspicious\s+download|torrenting\s+detected)",
-            re.IGNORECASE),
-        "severity": "medium", "type": "network_anomaly", "mitre": "T1048",
-        "category": "Network Anomaly"
-    },
 ]
 
 
