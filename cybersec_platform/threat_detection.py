@@ -15,7 +15,8 @@ INDICATOR_PATTERNS = [
             r"(nmap|masscan|zmap|SYN\s+scan|port\s+sweep|"
             r"\d+\s+port(s)?\s+scanned|OS\s+detection|service\s+detection|"
             r"Nessus|OpenVAS|nikto|service\s+enumeration|"
-            r"DNS\s+zone\s+transfer|AXFR|SNMP\s+brute\s+force)", re.IGNORECASE),
+            r"DNS\s+zone\s+transfer|AXFR|SNMP\s+brute\s+force|"
+            r"SNMP\s+community\s+string\s+brute\s+force)", re.IGNORECASE),
         "severity": "medium", "type": "reconnaissance", "mitre": "T1046",
         "category": "Network Reconnaissance"
     },
@@ -140,7 +141,8 @@ INDICATOR_PATTERNS = [
             r"sensitive\s+data.*sent|exfiltration\s+detected|"
             r"outbound.*\d{3,}\s*MB|data\s+leak|"
             r"bulk\s+download|megabytes.*external|"
-            r"covert\s+channel|ICMP\s+tunneling|steganography)", re.IGNORECASE),
+            r"covert\s+channel|ICMP\s+tunneling|steganography|"
+            r"large\s+file\s+transfer|GB\s+upload.*cloud\s+storage|potential\s+exfiltration)", re.IGNORECASE),
         "severity": "critical", "type": "data_exfiltration", "mitre": "T1041",
         "category": "Data Exfiltration"
     },
@@ -168,7 +170,8 @@ INDICATOR_PATTERNS = [
         "pattern": re.compile(
             r"(lsass\.exe.*dump|procdump.*lsass|mimikatz|sekurlsa|"
             r"wce\.exe|ntdsutil|sam.*hive|/etc/shadow\s+read|"
-            r"hashdump|pwdump)", re.IGNORECASE),
+            r"hashdump|pwdump|credential\s+dumping\s+detected|"
+            r"lsass\.exe\s+memory\s+access)", re.IGNORECASE),
         "severity": "critical", "type": "credential_dumping", "mitre": "T1003",
         "category": "Phishing & Credential Theft"
     },
@@ -187,7 +190,8 @@ INDICATOR_PATTERNS = [
         "pattern": re.compile(
             r"(multiple\s+accounts.*failed|accounts\s+locked|"
             r"lockout\s+threshold|distributed\s+login\s+failure|"
-            r"spray\s+attack|user\s+enumeration)", re.IGNORECASE),
+            r"spray\s+attack|user\s+enumeration|"
+            r"password\s+spraying\s+detected|accounts\s+failed\s+login)", re.IGNORECASE),
         "severity": "high", "type": "password_spray", "mitre": "T1110.003",
         "category": "Phishing & Credential Theft"
     },
