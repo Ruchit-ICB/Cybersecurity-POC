@@ -28,6 +28,10 @@ class Alert(Base):
     confidence = Column(Float)
     mitre_tactic = Column(String(100))
     ai_summary = Column("gemini_summary", Text, nullable=True)
+    # New fields for domain-based classification
+    domain = Column(String(50), index=True)  # NETWORK_PERFORMANCE, SECURITY_THREATS, SERVICE_HEALTH, COMPLIANCE
+    classification_type = Column(String(50))  # Condition, Threat, Classification
+    threat_status = Column(String(50), index=True)  # NONE, SUSPICIOUS, CONFIRMED
 
 class Metric(Base):
     __tablename__ = "metrics"

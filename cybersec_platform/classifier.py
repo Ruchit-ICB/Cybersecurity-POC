@@ -151,6 +151,7 @@ class SimpleLogClassifier:
 
     def _train(self) -> None:
         training_examples = [
+            # Benign network operations
             ("DHCP lease assigned to customer", "benign"),
             ("DNS query resolved successfully", "benign"),
             ("BGP route update received", "benign"),
@@ -161,6 +162,14 @@ class SimpleLogClassifier:
             ("HTTP proxy request completed", "benign"),
             ("SMTP connection established", "benign"),
             ("IoT device heartbeat", "benign"),
+            # Network performance issues (NOT security threats)
+            ("High latency detected degraded performance", "benign"),
+            ("Packet loss detected connection unstable", "benign"),
+            ("DNS resolution timeout NXDOMAIN", "benign"),
+            ("Bandwidth spike high throughput", "benign"),
+            ("Slow response timeout exceeded", "benign"),
+            ("Connection intermittent unstable", "benign"),
+            # Security threats (explicit malicious indicators)
             ("DDoS SYN flood detected", "threat"),
             ("DNS tunneling detected", "threat"),
             ("C2 beacon callback", "threat"),

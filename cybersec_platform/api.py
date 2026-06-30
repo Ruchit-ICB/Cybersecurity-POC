@@ -101,19 +101,58 @@ def get_dashboard_data():
         time_range_minutes = request.args.get('time_range', 60, type=int)
         time_range_start = now - timedelta(minutes=time_range_minutes)
 
-
-        recent_alerts_query = db.query(Alert).order_by(Alert.timestamp.desc()).limit(15).all()
-        live_threats = [{
-            "id": a.id,
-            "timestamp": a.timestamp.isoformat() + "Z",
-            "type": a.alert_type,
-            "severity": a.severity,
-            "description": a.description,
-            "source_ip": a.source_ip,
-            "mitre": a.mitre_tactic,
-            "ai_summary": getattr(a, "ai_summary", None)
-        } for a in recent_alerts_query]
-
+        # Get all recent alerts for filtering
+        recent_alerts_query = db.query(Alert).order_by(Alert.timestamp.desc()).limit(50).all()
+        
+        # Separate security threats from conditions
+        security_alerts = []
+        condition_alerts = []
+        seen_alerts = set()  # For deduplication
+        
+        for a in recent_alerts_query:
+            # Create unique key for deduplication
+            alert_key = (a.alert_type, a.source_ip, a.severity)
+            
+            # Skip if already seen (deduplication)
+            if alert_key in seen_alerts:
+                continue
+            seen_alerts.add(alert_key)
+            
+            # Check if this is a security threat (threat_status is SUSPICIOUS or CONFIRMED)
+            # For backward compatibility, if threat_status is not set, check MITRE tactic
+            threat_status = getattr(a, 'threat_status', None)
+            mitre_tactic = a.mitre_tactic
+            
+            is_security_threat = False
+            if threat_status in ['SUSPICIOUS', 'CONFIRMED']:
+                is_security_threat = True
+            elif threat_status is None and mitre_tactic and mitre_tactic != 'NOT APPLICABLE':
+                is_security_threat = True
+            elif threat_status is None and mitre_tactic is None:
+                # Legacy: assume it's a threat if it has a MITRE tactic or high severity
+                is_security_threat = a.severity in ['high', 'critical']
+            
+            alert_data = {
+                "id": a.id,
+                "timestamp": a.timestamp.isoformat() + "Z",
+                "type": a.alert_type,
+                "severity": a.severity,
+                "description": a.description,
+                "source_ip": a.source_ip,
+                "mitre": a.mitre_tactic,
+                "ai_summary": getattr(a, "ai_summary", None),
+                "domain": getattr(a, 'domain', 'SECURITY_THREATS'),
+                "classification_type": getattr(a, 'classification_type', 'Threat'),
+                "threat_status": getattr(a, 'threat_status', 'CONFIRMED' if is_security_threat else 'NONE')
+            }
+            
+            if is_security_threat:
+                security_alerts.append(alert_data)
+            else:
+                condition_alerts.append(alert_data)
+        
+        # Limit to 15 security threats for live threats display
+        live_threats = security_alerts[:15]
 
         recent_health = db.query(SystemHealth).order_by(SystemHealth.timestamp.desc()).limit(1).first()
         system_health = {
@@ -122,10 +161,25 @@ def get_dashboard_data():
             "active_connections": recent_health.active_connections if recent_health else 0
         }
 
-
+        # Build attack timeline - only include security threats
         alerts_in_range = db.query(Alert).filter(Alert.timestamp >= time_range_start).all()
         timeline_dict = {}
         for a in alerts_in_range:
+            # Filter to only security threats
+            threat_status = getattr(a, 'threat_status', None)
+            mitre_tactic = a.mitre_tactic
+            
+            is_security_threat = False
+            if threat_status in ['SUSPICIOUS', 'CONFIRMED']:
+                is_security_threat = True
+            elif threat_status is None and mitre_tactic and mitre_tactic != 'NOT APPLICABLE':
+                is_security_threat = True
+            elif threat_status is None and mitre_tactic is None:
+                is_security_threat = a.severity in ['high', 'critical']
+            
+            if not is_security_threat:
+                continue
+            
             minute_key = a.timestamp.strftime("%Y-%m-%dT%H:%M:00Z")
             if minute_key not in timeline_dict:
                 timeline_dict[minute_key] = {"count": 0, "threats": []}
@@ -147,12 +201,23 @@ def get_dashboard_data():
         vulnerability_summary = assessment
         predictive = PredictiveAnalytics().predict_risk()
         
+        # Calculate aggregate threat probability only from security threats
+        if security_alerts:
+            total_confidence = sum(a.get('confidence', 0) for a in security_alerts if a.get('confidence'))
+            avg_threat_probability = (total_confidence / len(security_alerts)) * 100 if security_alerts else 0
+        else:
+            avg_threat_probability = 0
+        
         return jsonify({
             "live_threats": live_threats,
+            "conditions": condition_alerts[:10],  # Include conditions separately
             "system_health": system_health,
             "attack_timeline": attack_timeline,
             "vulnerability_summary": vulnerability_summary,
-            "predictive_risk": predictive
+            "predictive_risk": predictive,
+            "aggregate_threat_probability": round(avg_threat_probability, 1),
+            "security_threat_count": len(security_alerts),
+            "condition_count": len(condition_alerts)
         })
     finally:
         db.close()
@@ -161,18 +226,83 @@ def get_dashboard_data():
 def manual_scan():
     """Manual log scan endpoint for debugging."""
     from .threat_detection import ThreatDetector
+    import logging
+    
+    logger = logging.getLogger(__name__)
     
     log_text = request.json.get("log_text", "") if request.is_json else ""
     if not log_text:
         return jsonify({"error": "No log_text provided"}), 400
-        
-    entries = [log_text]
-    features = [extract_features(entry) for entry in entries]
+
+    lines = [line.strip() for line in log_text.splitlines() if line.strip()] or [log_text.strip()]
+    from .parsing import normalize_log_entry
+    features = [extract_features(normalize_log_entry(line)) for line in lines]
+
+    import sys
+    print(f"[SCAN] {len(lines)} lines parsed, first fmt={features[0].get('format') if features else '?'}", flush=True, file=sys.stderr)
     
     detector = ThreatDetector()
-    detections = detector.detect(features)
+    all_detections = detector.detect(features)
     assessment = VulnerabilityAssessment().assess(features)
     ml_analysis = detector.local_analyze_log(log_text)
+
+    # Separate security threats from conditions and deduplicate
+    security_threats = []
+    conditions = []
+    seen_threats = set()
+    seen_conditions = set()
+    
+    for detection in all_detections:
+        threat_status = detection.get('threat_status', 'NONE')
+        domain = detection.get('domain', 'SECURITY_THREATS')
+        classification_type = detection.get('classification_type', 'Threat')
+        
+        # Create deduplication key
+        dedup_key = (
+            detection.get('threat_type', ''),
+            detection.get('source_ip', ''),
+            detection.get('severity', ''),
+            threat_status
+        )
+        
+        # Check if this is a threat or compliance violation (not a condition)
+        is_threat_or_compliance = (
+            (threat_status in ['SUSPICIOUS', 'CONFIRMED'] and domain == 'SECURITY_THREATS') or
+            (classification_type in ['Threat', 'Classification'] and domain in ['SECURITY_THREATS', 'COMPLIANCE'])
+        )
+        
+        if is_threat_or_compliance:
+            # This is a genuine security threat or compliance violation
+            if dedup_key not in seen_threats:
+                seen_threats.add(dedup_key)
+                security_threats.append(detection)
+        elif classification_type == 'Condition' or threat_status == 'NONE':
+            # This is a condition, not a security threat
+            if dedup_key not in seen_conditions:
+                seen_conditions.add(dedup_key)
+                conditions.append(detection)
+    
+    # Calculate aggregate threat probability from security threats only
+    if security_threats:
+        total_confidence = sum(t.get('confidence', 0) for t in security_threats)
+        avg_threat_probability = int(round((total_confidence / len(security_threats)) * 100))
+        
+        # Generate threat summary
+        unique_threats = list(dict.fromkeys(t['threat_type'] for t in security_threats))
+        if len(unique_threats) == 1:
+            threat_summary = f"Security threat '{unique_threats[0]}' detected in logs."
+        else:
+            threat_summary = f"Multiple security threats detected: {', '.join(unique_threats)}."
+    else:
+        avg_threat_probability = 0
+        threat_summary = "No threats detected. Log entries match normal ISP activity patterns."
+    
+    # Update ml_analysis to reflect only security threats
+    ml_analysis['probability'] = avg_threat_probability
+    ml_analysis['reason'] = threat_summary
+    ml_analysis['status'] = 'threat' if security_threats else 'clean'
+    ml_analysis['security_threat_count'] = len(security_threats)
+    ml_analysis['condition_count'] = len(conditions)
 
     db = SessionLocal()
     try:
@@ -184,11 +314,19 @@ def manual_scan():
         db.close()
     
     return jsonify({
-        "detections": detections,
+        "detections": security_threats,
+        "conditions": conditions,
         "assessment": assessment,
         "aggregate": aggregate_window(features),
         "llama_analysis": ml_analysis,
-        "ml_analysis": ml_analysis
+        "ml_analysis": ml_analysis,
+        "security_threat_count": len(security_threats),
+        "condition_count": len(conditions),
+        "debug": {
+            "lines_parsed": len(lines),
+            "first_fmt": features[0].get("format") if features else None,
+            "all_detections_raw": len(all_detections)
+        }
     })
 
 @api.route("/upload-code", methods=["POST"])

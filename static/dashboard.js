@@ -293,9 +293,8 @@ async function runManualScan() {
     btn.disabled = true;
     
     document.getElementById('scan-results').style.display = 'block';
-    document.getElementById('ai-prob').textContent = 'Analyzing...';
-    document.getElementById('ai-prob').style.color = '#cbd5e1';
-    document.getElementById('ai-reason').textContent = 'Analyzing log patterns...';
+    document.getElementById('scan-status-bar').innerHTML = '<div style="grid-column:span 3;color:#94a3b8;font-size:0.9rem;padding:12px 0;">Analyzing log patterns...</div>';
+    document.getElementById('scan-incidents-container').innerHTML = '';
     document.getElementById('scan-raw-output').textContent = 'Running ML models...';
     
     try {
@@ -306,74 +305,183 @@ async function runManualScan() {
         });
         const data = await response.json();
         
-        if (data.llama_analysis) {
-            const prob = data.llama_analysis.probability;
-            document.getElementById('ai-prob').textContent = prob + '%';
-            document.getElementById('ai-reason').textContent = data.llama_analysis.reason;
-            
-            let probColor = '#10b981';
-            if (prob > 75) probColor = '#ef4444';
-            else if (prob > 40) probColor = '#f59e0b';
-            document.getElementById('ai-prob').style.color = probColor;
+        const detections = data.detections || [];
+        const conditions = data.conditions || [];
+
+        // ── Status bar ─────────────────────────────────────────────────────────
+        const securityStatus = detections.length > 0
+            ? (detections.some(d => (d.threat_status||'').toUpperCase() === 'CONFIRMED') ? 'CONFIRMED' : 'SUSPICIOUS')
+            : 'NORMAL';
+        const networkStatus = conditions.length > 0 ? 'DEGRADED' : 'NORMAL';
+        const serviceStatus = detections.some(d => ['critical','high'].includes((d.severity||'').toLowerCase())) ? 'IMPACTED' : 'OPERATIONAL';
+
+        const statusColors = {
+            CONFIRMED:   { bg: 'rgba(239,68,68,0.12)',   border: '#ef4444', text: '#f87171' },
+            SUSPICIOUS:  { bg: 'rgba(245,158,11,0.12)',  border: '#f59e0b', text: '#fbbf24' },
+            NORMAL:      { bg: 'rgba(16,185,129,0.10)',  border: '#10b981', text: '#34d399' },
+            DEGRADED:    { bg: 'rgba(59,130,246,0.12)',  border: '#3b82f6', text: '#60a5fa' },
+            OPERATIONAL: { bg: 'rgba(16,185,129,0.10)',  border: '#10b981', text: '#34d399' },
+            IMPACTED:    { bg: 'rgba(239,68,68,0.12)',   border: '#ef4444', text: '#f87171' },
+        };
+
+        function statusPill(label, value) {
+            const c = statusColors[value] || statusColors.NORMAL;
+            return `<div style="background:${c.bg}; border:1px solid ${c.border}; border-radius:8px; padding:14px 16px;">
+                <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; color:#64748b; margin-bottom:4px;">${label}</div>
+                <div style="font-size:1rem; font-weight:700; color:${c.text};">${value}</div>
+            </div>`;
         }
 
+        document.getElementById('scan-status-bar').innerHTML =
+            statusPill('Security Status', securityStatus) +
+            statusPill('Network Status', networkStatus) +
+            statusPill('Service Status', serviceStatus);
+
+        // ── Incident cards ─────────────────────────────────────────────────────
         const incidentsContainer = document.getElementById('scan-incidents-container');
         incidentsContainer.innerHTML = '';
-        const detections = data.detections || [];
-        
-        if (detections.length === 0) {
+
+        if (detections.length === 0 && conditions.length === 0) {
             incidentsContainer.innerHTML = `
-                <div class="card incident-card" style="padding: 16px; background: rgba(16, 185, 129, 0.05); border-left: 4px solid #10b981; border-radius: 8px; border: 1px solid var(--border-color);">
-                    <h4 style="margin: 0; color: #10b981; font-size: 1rem;">🛡️ No Threats Detected</h4>
-                    <p style="margin: 8px 0 0 0; font-size: 0.85rem; color: #94a3b8;">The log entries do not match any known attack signatures or anomaly thresholds.</p>
+                <div style="padding:20px 24px; background:rgba(16,185,129,0.05); border-left:4px solid #10b981; border-radius:8px; border:1px solid var(--border-color);">
+                    <div style="font-weight:600; color:#10b981; margin-bottom:4px;">🛡️ No Threats Detected</div>
+                    <div style="font-size:0.85rem; color:#94a3b8;">The ISP log entries do not match any known attack signatures or anomaly thresholds.</div>
+                </div>`;
+        }
+
+        // Security threat cards
+        detections.forEach(d => {
+            const status    = (d.threat_status || 'CONFIRMED').toUpperCase();
+            const severity  = (d.severity || 'medium').toLowerCase();
+            const conf      = Math.round((d.confidence || 0) * 100);
+            const mitre     = d.mitre_tactics?.join(', ') || 'N/A';
+            const cve       = d.cve_id && d.cve_id !== 'N/A' ? `<span style="font-size:0.8rem;color:#64748b;">CVE: <strong style="color:#94a3b8;">${d.cve_id}</strong></span>` : '';
+
+            const sevColor  = { critical:'#ef4444', high:'#f59e0b', medium:'#eab308', low:'#3b82f6' }[severity] || '#3b82f6';
+            const statColor = status === 'CONFIRMED' ? '#10b981' : status === 'SUSPICIOUS' ? '#f59e0b' : '#60a5fa';
+            const confColor = conf >= 85 ? '#ef4444' : conf >= 70 ? '#f59e0b' : '#60a5fa';
+
+            const evidenceHtml = Array.isArray(d.evidence) && d.evidence.length
+                ? d.evidence.map(e => `<li style="margin:2px 0;">${e}</li>`).join('')
+                : '';
+
+            const card = document.createElement('div');
+            card.style.cssText = `border-left:4px solid ${sevColor}; padding:20px 24px; background:rgba(15,23,42,0.6); border-radius:8px; border:1px solid var(--border-color); margin-bottom:4px; font-size:0.88rem;`;
+            card.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; flex-wrap:wrap; gap:8px;">
+                    <div>
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                            <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; background:rgba(239,68,68,0.15); color:#f87171; padding:2px 8px; border-radius:3px; border:1px solid rgba(239,68,68,0.3);">SECURITY_STATUS</span>
+                            <span style="font-weight:700; color:${statColor}; font-size:0.95rem;">${status}</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; background:rgba(16,185,129,0.1); color:#34d399; padding:2px 8px; border-radius:3px; border:1px solid rgba(16,185,129,0.2);">NETWORK_STATUS</span>
+                            <span style="font-weight:600; color:#34d399; font-size:0.9rem;">${networkStatus}</span>
+                            <span style="font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; background:rgba(16,185,129,0.1); color:#34d399; padding:2px 8px; border-radius:3px; border:1px solid rgba(16,185,129,0.2);">SERVICE_STATUS</span>
+                            <span style="font-weight:600; color:${serviceStatus === 'OPERATIONAL' ? '#34d399' : '#f87171'}; font-size:0.9rem;">${serviceStatus}</span>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+                        <span class="badge ${severity}">${severity.toUpperCase()}</span>
+                    </div>
+                </div>
+
+                <div style="border-top:1px solid rgba(51,65,85,0.5); padding-top:14px;">
+                    <div style="margin-bottom:10px;">
+                        <span style="color:#64748b; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.06em;">Threat</span>
+                        <div style="font-size:1.05rem; font-weight:700; color:#f8fafc; margin-top:2px;">${d.threat_type}</div>
+                    </div>
+                    <div style="display:flex; gap:24px; flex-wrap:wrap; margin-bottom:14px;">
+                        <div>
+                            <span style="color:#64748b; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.06em;">MITRE ATT&amp;CK</span>
+                            <div style="font-family:monospace; color:#60a5fa; margin-top:2px;">${mitre}</div>
+                        </div>
+                        <div>
+                            <span style="color:#64748b; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.06em;">Confidence</span>
+                            <div style="font-weight:700; color:${confColor}; font-size:1.1rem; margin-top:2px;">${conf}%</div>
+                        </div>
+                        ${cve ? `<div>${cve}</div>` : ''}
+                    </div>
+
+                    <div style="margin-bottom:10px;">
+                        <div style="color:#64748b; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px;">Explanation</div>
+                        <div style="color:#cbd5e1; line-height:1.6;">${d.explanation || d.raw_message}</div>
+                    </div>
+
+                    ${evidenceHtml ? `<div style="margin-bottom:10px; padding:10px 12px; background:rgba(15,23,42,0.5); border-radius:5px; border:1px solid rgba(51,65,85,0.4);">
+                        <div style="color:#64748b; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:5px;">Evidence Fired</div>
+                        <ul style="margin:0; padding-left:16px; color:#94a3b8; line-height:1.7;">${evidenceHtml}</ul>
+                    </div>` : ''}
+
+                    <div style="padding:12px 14px; background:rgba(15,23,42,0.5); border-radius:6px; border:1px solid rgba(51,65,85,0.3);">
+                        <div style="margin-bottom:8px;">
+                            <span style="color:#64748b; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.06em;">Potential Impact</span>
+                            <div style="color:#f87171; margin-top:3px; line-height:1.5;">${d.impact || 'N/A'}</div>
+                        </div>
+                        <div>
+                            <span style="color:#64748b; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.06em;">Recommended Mitigation</span>
+                            <div style="color:#34d399; margin-top:3px; line-height:1.5;">${d.mitigation || 'N/A'}</div>
+                        </div>
+                    </div>
                 </div>
             `;
-        } else {
-            detections.forEach(d => {
-                const severity = (d.severity || 'medium').toLowerCase();
-                let severityColor = '#3b82f6';
-                if (severity === 'critical') severityColor = '#ef4444';
-                else if (severity === 'high') severityColor = '#f59e0b';
-                else if (severity === 'medium') severityColor = '#eab308';
-                
-                const cveHtml = d.cve_id && d.cve_id !== 'N/A' ? ` | <span>CVE ID: <strong>${d.cve_id}</strong></span>` : '';
+            incidentsContainer.appendChild(card);
+        });
+
+        // Network condition cards
+        if (conditions.length > 0) {
+            const hdr = document.createElement('div');
+            hdr.style.cssText = 'margin:20px 0 12px; padding-bottom:8px; border-bottom:1px solid var(--border-color);';
+            hdr.innerHTML = `<span style="color:#60a5fa; font-size:0.9rem; font-weight:600;">🔵 Network Conditions / Monitor (${conditions.length})</span>`;
+            incidentsContainer.appendChild(hdr);
+
+            conditions.forEach(c => {
+                const sev = (c.severity || 'low').toLowerCase();
                 const card = document.createElement('div');
-                card.className = 'card incident-card';
-                card.style.cssText = `border-left: 4px solid ${severityColor}; padding: 16px; background: rgba(30, 41, 59, 0.4); border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 12px;`;
+                card.style.cssText = 'border-left:4px solid #3b82f6; padding:14px 18px; background:rgba(30,41,59,0.2); border-radius:8px; border:1px solid var(--border-color); margin-bottom:6px; font-size:0.85rem;';
                 card.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
-                        <div>
-                            <h4 style="margin: 0; font-size: 1.1rem; color: #f8fafc;">Threat: ${d.threat_type}</h4>
-                            <div style="margin-top: 4px; font-size: 0.85rem; color: #94a3b8;">
-                                <span>MITRE ATT&CK: <strong>${d.mitre_tactics ? d.mitre_tactics.join(', ') : 'N/A'}</strong></span>${cveHtml}
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                        <div style="flex:1;">
+                            <div style="display:flex; align-items:center; gap:8px; margin-bottom:3px;">
+                                <span style="font-weight:600; color:#cbd5e1;">${c.threat_type}</span>
+                                <span style="background:rgba(59,130,246,0.15); color:#60a5fa; border:1px solid rgba(59,130,246,0.3); padding:1px 6px; border-radius:3px; font-size:0.7rem; font-weight:600;">MONITOR</span>
                             </div>
+                            <div style="color:#94a3b8; line-height:1.5;">${c.explanation || c.raw_message || ''}</div>
                         </div>
-                        <div style="display: flex; gap: 8px;">
-                            <span class="badge ${severity}">${severity.toUpperCase()}</span>
-                            <span class="badge info" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2);">Confidence: ${(d.confidence * 100).toFixed(1)}%</span>
-                        </div>
-                    </div>
-                    <div style="font-size: 0.9rem; color: #cbd5e1; margin-bottom: 12px;">
-                        <strong>Explanation:</strong> ${d.explanation || d.raw_message}
-                    </div>
-                    <div style="padding: 12px; background: rgba(15, 23, 42, 0.5); border-radius: 6px; font-size: 0.85rem; border: 1px solid rgba(51, 65, 85, 0.3);">
-                        <div style="color: #f87171; margin-bottom: 6px;"><strong>Potential Impact:</strong> ${d.impact || 'N/A'}</div>
-                        <div style="color: #34d399;"><strong>Recommended Mitigation:</strong> ${d.mitigation || 'N/A'}</div>
-                    </div>
-                `;
+                        <span class="badge ${sev}" style="flex-shrink:0;">${sev.toUpperCase()}</span>
+                    </div>`;
                 incidentsContainer.appendChild(card);
             });
         }
-        
+
         document.getElementById('scan-raw-output').textContent = JSON.stringify(data, null, 2);
+
+        // Show debug summary at top of raw output
+        const dbg = data.debug || {};
+        const debugSummary = `// API returned: detections=${data.detections?.length ?? 0}  conditions=${data.conditions?.length ?? 0}  lines_parsed=${dbg.lines_parsed ?? '?'}  first_fmt=${dbg.first_fmt ?? '?'}  all_detections_raw=${dbg.all_detections_raw ?? '?'}  probability=${data.llama_analysis?.probability ?? '?'}%\n\n`;
+        document.getElementById('scan-raw-output').textContent = debugSummary + JSON.stringify(data, null, 2);
         
     } catch (e) {
         console.error("Scan failed", e);
-        document.getElementById('ai-reason').textContent = "Failed to communicate with server.";
+        document.getElementById('scan-status-bar').innerHTML = '<div style="color:#f87171;grid-column:span 3;">Failed to communicate with server.</div>';
     } finally {
         btn.textContent = 'Scan with ML Engine';
         btn.disabled = false;
     }
+}
+
+function loadLogFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const nameEl = document.getElementById('log-file-name');
+    nameEl.textContent = file.name;
+    const reader = new FileReader();
+    reader.onload = e => {
+        document.getElementById('log-input').value = e.target.result;
+    };
+    reader.readAsText(file);
+    // Reset input so the same file can be re-attached
+    event.target.value = '';
 }
 
 async function runCodeUploadAnalysis() {

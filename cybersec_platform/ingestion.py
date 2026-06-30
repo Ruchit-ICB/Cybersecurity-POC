@@ -66,8 +66,11 @@ class LogIngestor:
                     description=f"Detected {d['threat_type']}: {d['raw_message'][:100]}",
                     source_ip=d["source_ip"],
                     confidence=d["confidence"],
-                    mitre_tactic=",".join(d["mitre_tactics"]),
-                    ai_summary=ml_summary
+                    mitre_tactic=",".join(d["mitre_attack"]),
+                    ai_summary=ml_summary,
+                    domain=d.get("domain", "SECURITY_THREATS"),
+                    classification_type=d.get("classification_type", "Threat"),
+                    threat_status=d.get("threat_status", "NONE")
                 )
                 db.add(alert)
             v_assessment = VulnerabilityAssessment().assess(features_list)

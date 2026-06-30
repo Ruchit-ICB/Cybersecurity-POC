@@ -96,3 +96,39 @@ def test_isp_classifier_detects_sample_threats():
     assert summary["ml_benign_count"] == 3
     assert summary["ml_threat_count"] == 9
     assert summary["threat_indicator_count"] >= 8
+
+
+def test_benign_logs_report_zero_threat_probability():
+    """Clean ISP logs should report NONE threat status, 0 confidence."""
+    detector = ThreatDetector()
+    now = datetime.now(timezone.utc)
+
+    for template in BENIGN_TEMPLATES:
+        log = template("192.168.1.1", now)
+        analysis = detector.local_analyze_log(log)
+        assert analysis["threat_status"] == "NONE"
+        assert analysis["confidence"] == 0.0
+
+
+def test_attack_logs_report_high_threat_probability():
+    """Detected ISP attacks should report SUSPICIOUS or CONFIRMED status."""        
+    detector = ThreatDetector()
+    now = datetime.now(timezone.utc)
+
+    for template in ATTACK_TEMPLATES:
+        log = template("10.0.0.1", now)
+        analysis = detector.local_analyze_log(log)
+        assert analysis["threat_status"] in ["SUSPICIOUS", "CONFIRMED"]
+        assert analysis["confidence"] >= 0.70
+
+
+def test_failed_ssh_login_is_detected():
+    """Common manual-scan placeholder logs should be detected as threat."""
+    detector = ThreatDetector()
+    log = (
+        '{"timestamp": "2026-06-24T12:00:00Z", "level": "WARN", '
+        '"message": "Failed SSH login from 192.168.1.50"}'
+    )
+    analysis = detector.local_analyze_log(log)
+    assert analysis["threat_status"] in ["SUSPICIOUS", "CONFIRMED"]
+    assert analysis["confidence"] >= 0.70

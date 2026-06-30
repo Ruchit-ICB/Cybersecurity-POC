@@ -55,7 +55,7 @@ ATTACK_TEMPLATES = [
     lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "Malware distribution: {ip} serving Emotet payload via HTTP download"}}',
     lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "Ransomware encryption detected in /home/user/docs — files renamed to .encrypted"}}',
     lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "Fileless malware: powershell -EncodedCommand aQBlAHgAIA... executed in memory"}}',
-    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "LOLBin abuse: certutil -decode dropping payload to C:\\Windows\\Temp\\malware.exe"}}',
+    lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "HIGH", "message": "LOLBin abuse: certutil -decode dropping payload to C:\\\\Windows\\\\Temp\\\\malware.exe"}}',
     lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "Worm propagation: SMB exploit EternalBlue from {ip} — WannaCry-like activity"}}',
     # ── DATA EXFILTRATION ─────────────────────────────────────
     lambda ip, dt: f'{{"timestamp": "{dt.isoformat()}Z", "level": "CRITICAL", "message": "Data exfiltration detected: 2.4GB outbound transfer to {ip} on port 443"}}',
@@ -107,6 +107,26 @@ BENIGN_TEMPLATES = [
     lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"INFO\", \"service\": \"iot\", \"message\": \"IoT device heartbeat\", \"device_ip\": \"{ip}\", \"device_type\": \"smart_thermostat\"}}',
 ]
 
+# ISP network performance monitoring templates (non-security)
+NETWORK_PERFORMANCE_TEMPLATES = [
+    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"INFO\", \"service\": \"network\", \"message\": \"High latency detected from {ip}, rtt_ms: {random.uniform(200,500)} - degraded performance\", \"src_ip\": \"{ip}\", \"rtt_ms\": {random.uniform(200,500)}}}',
+    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"INFO\", \"service\": \"network\", \"message\": \"Packet loss detected from {ip}, dropped_packets: {random.randint(10,50)} - connection unstable\", \"src_ip\": \"{ip}\", \"dropped_packets\": {random.randint(10,50)}}}',
+    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"INFO\", \"service\": \"dns\", \"message\": \"DNS resolution timeout for query - NXDOMAIN\", \"query\": \"example.invalid\"}}',
+    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"INFO\", \"service\": \"bandwidth\", \"message\": \"Bandwidth spike detected from {ip}, usage_mbps: {random.uniform(300,500)} - high throughput\", \"src_ip\": \"{ip}\", \"usage_mbps\": {random.uniform(300,500)}}}',
+]
+
+# ISP security threat templates (require explicit evidence)
+SECURITY_THREAT_TEMPLATES = [
+    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"WARN\", \"service\": \"network\", \"message\": \"Bittorrent handshake detected from {ip} on port 6881 - tracker connection established\", \"src_ip\": \"{ip}\", \"protocol\": \"BITTORRENT\", \"port\": 6881}}',
+    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"WARN\", \"service\": \"network\", \"message\": \"DMCA takedown notice received for copyright infringement confirmed from {ip}\", \"src_ip\": \"{ip}\", \"violation_type\": \"copyright_infringement\"}}',
+]
+
+# Critical infrastructure outage templates (sustained failure only)
+CRITICAL_OUTAGE_TEMPLATES = [
+    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"CRITICAL\", \"service\": \"infrastructure\", \"message\": \"Sustained outage: multi-node failure detected across 3 data centers, service unavailable confirmed\", \"affected_nodes\": 3, \"status\": \"critical\"}}',
+    lambda ip, dt: f'{{\"timestamp\": \"{dt.isoformat()}Z\", \"level\": \"CRITICAL\", \"service\": \"infrastructure\", \"message\": \"Complete service failure: critical infrastructure down, confirmed unavailability for 15 minutes\", \"duration_minutes\": 15, \"status\": \"down\"}}',
+]
+
 
 class LokiClient:
     """Mock client for Loki logs — generates rich, realistic multi-source log data."""
@@ -124,9 +144,23 @@ class LokiClient:
 
     def _generate_mock_log(self, dt: datetime) -> str:
         ip = _random_ip()
-        # ~12% of logs are attacks for realistic simulation
-        if random.random() < 0.12:
+        rand = random.random()
+        
+        # 12% attacks
+        if rand < 0.12:
             template = random.choice(ATTACK_TEMPLATES)
+            return template(ip, dt)
+        # 5% network performance
+        elif rand < 0.17:
+            template = random.choice(NETWORK_PERFORMANCE_TEMPLATES)
+            return template(ip, dt)
+        # 2% security threats
+        elif rand < 0.19:
+            template = random.choice(SECURITY_THREAT_TEMPLATES)
+            return template(ip, dt)
+        # 1% critical outages
+        elif rand < 0.20:
+            template = random.choice(CRITICAL_OUTAGE_TEMPLATES)
             return template(ip, dt)
         # Remaining are benign
         template = random.choice(BENIGN_TEMPLATES)

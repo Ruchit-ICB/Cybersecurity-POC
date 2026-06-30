@@ -14,6 +14,15 @@ SYSLOG_PATTERN = re.compile(
     r"^(?P<time_local>[A-Z][a-z]{2}\s+\d+\s+\d{2}:\d{2}:\d{2})\s+(?P<hostname>\S+)\s+(?P<process>[^:]+):\s+(?P<message>.*)$"
 )
 
+# Plain timestamp log: "2026-06-29 15:18:16 HOST LEVEL key=val key=val ..."
+# Covers network device / IDS / firewall structured-text logs
+PLAIN_TS_PATTERN = re.compile(
+    r"^(?P<timestamp>\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+"
+    r"(?P<hostname>\S+)\s+(?P<level>INFO|WARN|WARNING|ALERT|ERROR|CRITICAL|DEBUG|NOTICE)\s+"
+    r"(?P<message>.+)$",
+    re.IGNORECASE,
+)
+
 # Key=Value format (e.g. "ts=2026-06-24 level=INFO msg=hello")
 KV_PATTERN = re.compile(r"([a-zA-Z0-9_]+)=([^\s]+)")
 
@@ -22,10 +31,17 @@ def detect_log_format(raw_message: str) -> str:
     """Heuristically determine the format of a raw log line."""
     raw_message = raw_message.strip()
     
-    # Try JSON
+    # Try ISP JSON format first
     if raw_message.startswith("{") and raw_message.endswith("}"):
         try:
-            json.loads(raw_message)
+            parsed = json.loads(raw_message)
+            if isinstance(parsed, dict):
+                # ISP logs typically have these fields
+                has_timestamp = "timestamp" in parsed
+                has_message = "message" in parsed
+                has_level_or_severity = "level" in parsed or "severity" in parsed
+                if has_timestamp and has_message and (has_level_or_severity or "service" in parsed):
+                    return "isp"
             return "json"
         except ValueError:
             pass
@@ -36,6 +52,9 @@ def detect_log_format(raw_message: str) -> str:
         
     if SYSLOG_PATTERN.match(raw_message):
         return "syslog"
+
+    if PLAIN_TS_PATTERN.match(raw_message):
+        return "plain_ts"
         
     # Try Key-Value
     if len(KV_PATTERN.findall(raw_message)) > 2:
@@ -58,7 +77,7 @@ def normalize_log_entry(raw_message: str) -> Dict[str, Any]:
         "format": format_name,
     }
 
-    if format_name == "json":
+    if format_name == "isp" or format_name == "json":
         parsed = safe_json_load(raw_message)
         if isinstance(parsed, dict):
             normalized.update(parsed)
@@ -77,6 +96,22 @@ def normalize_log_entry(raw_message: str) -> Dict[str, Any]:
             normalized.update(match.groupdict())
             # Simple timestamp conversion (syslog doesn't include year by default)
             normalized["timestamp"] = parse_timestamp(normalized.get("time_local", ""))
+
+    elif format_name == "plain_ts":
+        match = PLAIN_TS_PATTERN.match(raw_message)
+        if match:
+            normalized.update(match.groupdict())
+            normalized["timestamp"] = parse_timestamp(normalized.get("timestamp", ""))
+            # Also parse any key=value pairs embedded in the message body
+            msg_body = normalized.get("message", "")
+            kv_pairs = KV_PATTERN.findall(msg_body)
+            for key, value in kv_pairs:
+                # Don't overwrite top-level fields already extracted
+                if key not in normalized:
+                    normalized[key] = value
+            # Normalise common underscore field names to their spaced equivalents
+            # so downstream patterns that search raw_message still see the full line
+            normalized["message"] = msg_body
             
     elif format_name == "key_value":
         pairs = KV_PATTERN.findall(raw_message)
