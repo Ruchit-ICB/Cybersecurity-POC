@@ -1,5 +1,3 @@
-"""ISP log threat detection accuracy tests."""
-
 import random
 from datetime import datetime, timedelta, timezone
 
@@ -12,7 +10,7 @@ from cybersec_platform.threat_detection import ThreatDetector
 
 
 def _generate_test_logs(num_attacks=100, num_benign=100, seed=42):
-    """Generate ISP logs with known ground truth."""
+    
     rng = random.Random(seed)
     logs = []
     now = datetime.now(timezone.utc)
@@ -68,7 +66,7 @@ def _evaluate_logs(test_logs):
 
 
 def test_isp_threat_detection_accuracy():
-    """All ISP attack templates should be detected; benign logs should pass."""
+    
     results = _evaluate_logs(_generate_test_logs())
 
     assert results["true_positives"] == 100
@@ -99,7 +97,7 @@ def test_isp_classifier_detects_sample_threats():
 
 
 def test_benign_logs_report_zero_threat_probability():
-    """Clean ISP logs should report NONE threat status, 0 confidence."""
+    
     detector = ThreatDetector()
     now = datetime.now(timezone.utc)
 
@@ -111,7 +109,7 @@ def test_benign_logs_report_zero_threat_probability():
 
 
 def test_attack_logs_report_high_threat_probability():
-    """Detected ISP attacks should report SUSPICIOUS or CONFIRMED status."""        
+            
     detector = ThreatDetector()
     now = datetime.now(timezone.utc)
 
@@ -123,7 +121,7 @@ def test_attack_logs_report_high_threat_probability():
 
 
 def test_failed_ssh_login_is_detected():
-    """Common manual-scan placeholder logs should be detected as threat."""
+    
     detector = ThreatDetector()
     log = (
         '{"timestamp": "2026-06-24T12:00:00Z", "level": "WARN", '

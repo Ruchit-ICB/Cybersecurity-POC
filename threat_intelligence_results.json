@@ -1,0 +1,284 @@
+{
+  "analysis_timestamp": "2026-06-29T10:35:47.152334+00:00",
+  "total_logs_analyzed": 100,
+  "total_findings": 15,
+  "confirmed_threats": 10,
+  "suspicious_threats": 4,
+  "monitor_items": 1,
+  "operational_conditions": 12,
+  "aggregate_threat_score": "97%",
+  "findings": [
+    {
+      "timestamp": "2026-06-29T09:47:03.128096+00:00Z",
+      "source_ip": "unknown",
+      "domain": "SECURITY_THREATS",
+      "classification": "Data Exfiltration",
+      "threat_status": "Confirmed",
+      "severity": "Critical",
+      "confidence": "100%",
+      "mitre_attack": "T1041",
+      "evidence": "Pattern match",
+      "impact": "Theft of corporate intellectual property, personal user data, or database backups.",
+      "mitigation": "Enforce strict egress data limits and monitor for massive file transfers to external endpoints.",
+      "explanation": "High-volume data transfer to external IPs or cloud storages."
+    },
+    {
+      "timestamp": "2026-06-29T10:15:52.128096+00:00Z",
+      "source_ip": "unknown",
+      "domain": "SECURITY_THREATS",
+      "classification": "Ransomware Activity",
+      "threat_status": "Confirmed",
+      "severity": "Critical",
+      "confidence": "100%",
+      "mitre_attack": "T1486",
+      "evidence": "Pattern match",
+      "impact": "Complete loss of files and operational disruption due to encryption of critical assets.",
+      "mitigation": "Configure file integrity monitoring, enforce strict write permissions, and implement automated backups.",
+      "explanation": "Rapid file modification or mass encryption signatures detected."
+    },
+    {
+      "timestamp": "2026-06-29T10:32:51.128096+00:00Z",
+      "source_ip": "unknown",
+      "domain": "SECURITY_THREATS",
+      "classification": "DDoS / Volumetric Attack",
+      "threat_status": "Confirmed",
+      "severity": "Critical",
+      "confidence": "100%",
+      "mitre_attack": "T1498",
+      "evidence": "Pattern match",
+      "impact": "Denial of service making the application unavailable to legitimate users.",
+      "mitigation": "Deploy volumetric DDoS protection (e.g. Cloudflare) and configure rate limiters at firewall level.",
+      "explanation": "Volumetric traffic spike or SYN flood pattern detected."
+    },
+    {
+      "timestamp": "2026-06-29T09:39:53.128096+00:00Z",
+      "source_ip": "unknown",
+      "domain": "SECURITY_THREATS",
+      "classification": "Credential Dumping",
+      "threat_status": "Confirmed",
+      "severity": "Critical",
+      "confidence": "100%",
+      "mitre_attack": "T1003",
+      "evidence": "Pattern match",
+      "impact": "Compromise of Windows domain or local administrator credentials.",
+      "mitigation": "Enable LSA protection, restrict administrative privileges, and deploy Endpoint Detection and Response (EDR).",
+      "explanation": "lsass.exe memory access or password dumping utility execution detected."
+    },
+    {
+      "timestamp": "2026-06-29T10:10:16.128096+00:00Z",
+      "source_ip": "unknown",
+      "domain": "SECURITY_THREATS",
+      "classification": "DNS Tunneling / Exfiltration",
+      "threat_status": "Suspicious",
+      "severity": "High",
+      "confidence": "74%",
+      "mitre_attack": "T1048.003",
+      "evidence": "Pattern match",
+      "impact": "Bypass of firewall rules for data exfiltration or Command and Control (C2) communications.",
+      "mitigation": "Configure DNS firewalls to detect and block anomalous query rates or patterns; inspect DNS payload sizes.",
+      "explanation": "Unusually long or base64-encoded DNS subdomains indicating DNS tunneling."
+    },
+    {
+      "timestamp": "2026-06-29T10:11:42.128096+00:00Z",
+      "source_ip": "unknown",
+      "domain": "COMPLIANCE",
+      "classification": "Copyright Infringement / Torrenting",
+      "threat_status": "Suspicious",
+      "severity": "High",
+      "confidence": "75%",
+      "mitre_attack": "T1048",
+      "evidence": "Pattern match",
+      "impact": "May indicate copyright infringement or policy violation requiring review.",
+      "mitigation": "Review activity logs, verify compliance with policies, and take appropriate action.",
+      "explanation": "Compliance/content risk detected: Copyright Infringement / Torrenting. This indicates potential policy violation."
+    },
+    {
+      "timestamp": "2026-06-29T09:35:48.128096+00:00Z",
+      "source_ip": "unknown",
+      "domain": "SECURITY_THREATS",
+      "classification": "Port Scanning / Reconnaissance",
+      "threat_status": "Suspicious",
+      "severity": "High",
+      "confidence": "75%",
+      "mitre_attack": "T1046",
+      "evidence": "Pattern match",
+      "impact": "Potential security exposure of service resources.",
+      "mitigation": "Review access logs, block sender IP, and check system configurations.",
+      "explanation": "Security signature match for 'Port Scanning / Reconnaissance'."
+    },
+    {
+      "timestamp": "2026-06-29T10:15:42.128096+00:00Z",
+      "source_ip": "unknown",
+      "domain": "SECURITY_THREATS",
+      "classification": "Malware Distribution",
+      "threat_status": "Confirmed",
+      "severity": "Critical",
+      "confidence": "100%",
+      "mitre_attack": "T1105",
+      "evidence": "Pattern match",
+      "impact": "Potential security exposure of service resources.",
+      "mitigation": "Review access logs, block sender IP, and check system configurations.",
+      "explanation": "Security signature match for 'Malware Distribution'."
+    },
+    {
+      "timestamp": "2026-06-29T10:32:54.128096+00:00Z",
+      "source_ip": "unknown",
+      "domain": "SECURITY_THREATS",
+      "classification": "Brute-Force Authentication",
+      "threat_status": "Confirmed",
+      "severity": "Critical",
+      "confidence": "99%",
+      "mitre_attack": "T1110",
+      "evidence": "Pattern match",
+      "impact": "Unauthorized account access and credential compromise.",
+      "mitigation": "Implement rate limiting, account lockout policies, and enforce multi-factor authentication (MFA).",
+      "explanation": "Multiple failed authentication attempts detected from the same source IP."
+    },
+    {
+      "timestamp": "2026-06-29T10:14:52.128096+00:00Z",
+      "source_ip": "unknown",
+      "domain": "SECURITY_THREATS",
+      "classification": "DNS Tunneling / Exfiltration",
+      "threat_status": "Monitor",
+      "severity": "Medium",
+      "confidence": "68%",
+      "mitre_attack": "T1048.003",
+      "evidence": "Pattern match",
+      "impact": "Bypass of firewall rules for data exfiltration or Command and Control (C2) communications.",
+      "mitigation": "Configure DNS firewalls to detect and block anomalous query rates or patterns; inspect DNS payload sizes.",
+      "explanation": "Unusually long or base64-encoded DNS subdomains indicating DNS tunneling."
+    },
+    {
+      "timestamp": "2026-06-29T10:09:03.128096+00:00Z",
+      "source_ip": "unknown",
+      "domain": "SECURITY_THREATS",
+      "classification": "C2 Beacon / Command & Control",
+      "threat_status": "Confirmed",
+      "severity": "Critical",
+      "confidence": "100%",
+      "mitre_attack": "T1102",
+      "evidence": "Pattern match",
+      "impact": "Potential security exposure of service resources.",
+      "mitigation": "Review access logs, block sender IP, and check system configurations.",
+      "explanation": "Security signature match for 'C2 Beacon / Command & Control'."
+    },
+    {
+      "timestamp": "2026-06-29T16:05:47.150825",
+      "source_ip": "multiple",
+      "domain": "SECURITY_THREATS",
+      "classification": "Ransomware",
+      "threat_status": "Confirmed",
+      "severity": "Critical",
+      "confidence": "90%",
+      "mitre_attack": "NOT APPLICABLE",
+      "evidence": "Pattern match",
+      "impact": "System compromise, data loss, or unauthorized resource usage.",
+      "mitigation": "Isolate affected systems, analyze malware, block C2 domains, and restore from backups.",
+      "explanation": "Ransomware detected with confidence 90%. Evidence: known signature=True, C2 communication=False, payload detection=True."
+    },
+    {
+      "timestamp": "2026-06-29T16:05:47.150852",
+      "source_ip": "multiple",
+      "domain": "SECURITY_THREATS",
+      "classification": "Malware Activity",
+      "threat_status": "Suspicious",
+      "severity": "High",
+      "confidence": "70%",
+      "mitre_attack": "NOT APPLICABLE",
+      "evidence": "Pattern match",
+      "impact": "System compromise, data loss, or unauthorized resource usage.",
+      "mitigation": "Isolate affected systems, analyze malware, block C2 domains, and restore from backups.",
+      "explanation": "Malware Activity detected with confidence 70%. Evidence: known signature=False, C2 communication=False, payload detection=True."
+    },
+    {
+      "timestamp": "2026-06-29T16:05:47.150861",
+      "source_ip": "multiple",
+      "domain": "SECURITY_THREATS",
+      "classification": "C2 Communication",
+      "threat_status": "Confirmed",
+      "severity": "Critical",
+      "confidence": "95%",
+      "mitre_attack": "NOT APPLICABLE",
+      "evidence": "Pattern match",
+      "impact": "System compromise, data loss, or unauthorized resource usage.",
+      "mitigation": "Isolate affected systems, analyze malware, block C2 domains, and restore from backups.",
+      "explanation": "C2 Communication detected with confidence 95%. Evidence: known signature=True, C2 communication=True, payload detection=False."
+    },
+    {
+      "timestamp": "2026-06-29T16:05:47.150904",
+      "source_ip": "multiple",
+      "domain": "SECURITY_THREATS",
+      "classification": "Network Scanning / Reconnaissance",
+      "threat_status": "Confirmed",
+      "severity": "Critical",
+      "confidence": "90%",
+      "mitre_attack": "NOT APPLICABLE",
+      "evidence": "Pattern match",
+      "impact": "Reconnaissance activity may precede an attack.",
+      "mitigation": "Block scanning source, monitor for follow-up attacks, and review exposed services.",
+      "explanation": "Network scanning detected from unknown: 5 scan events. Additional evidence: OS detection=False, service enumeration=False."
+    }
+  ],
+  "operational_conditions_summary": [
+    {
+      "classification": "Packet Loss / Connection Issues",
+      "domain": "NETWORK_PERFORMANCE",
+      "note": "Operational condition - not a security threat"
+    },
+    {
+      "classification": "Packet Loss / Connection Issues",
+      "domain": "NETWORK_PERFORMANCE",
+      "note": "Operational condition - not a security threat"
+    },
+    {
+      "classification": "High Latency / Degraded Performance",
+      "domain": "NETWORK_PERFORMANCE",
+      "note": "Operational condition - not a security threat"
+    },
+    {
+      "classification": "Packet Loss / Connection Issues",
+      "domain": "NETWORK_PERFORMANCE",
+      "note": "Operational condition - not a security threat"
+    },
+    {
+      "classification": "High Latency / Degraded Performance",
+      "domain": "NETWORK_PERFORMANCE",
+      "note": "Operational condition - not a security threat"
+    },
+    {
+      "classification": "Packet Loss / Connection Issues",
+      "domain": "NETWORK_PERFORMANCE",
+      "note": "Operational condition - not a security threat"
+    },
+    {
+      "classification": "Packet Loss / Connection Issues",
+      "domain": "NETWORK_PERFORMANCE",
+      "note": "Operational condition - not a security threat"
+    },
+    {
+      "classification": "Packet Loss / Connection Issues",
+      "domain": "NETWORK_PERFORMANCE",
+      "note": "Operational condition - not a security threat"
+    },
+    {
+      "classification": "Packet Loss / Connection Issues",
+      "domain": "NETWORK_PERFORMANCE",
+      "note": "Operational condition - not a security threat"
+    },
+    {
+      "classification": "Packet Loss / Connection Issues",
+      "domain": "NETWORK_PERFORMANCE",
+      "note": "Operational condition - not a security threat"
+    },
+    {
+      "classification": "Packet Loss / Connection Issues",
+      "domain": "NETWORK_PERFORMANCE",
+      "note": "Operational condition - not a security threat"
+    },
+    {
+      "classification": "Packet Loss / Connection Issues",
+      "domain": "NETWORK_PERFORMANCE",
+      "note": "Operational condition - not a security threat"
+    }
+  ]
+}

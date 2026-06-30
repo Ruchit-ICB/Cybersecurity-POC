@@ -17,7 +17,7 @@ from cybersec_platform.classifier import (
 
 
 def run_cli() -> None:
-    """Parse CLI arguments and run the classifier against log text."""
+    
     parser = argparse.ArgumentParser(
         description="Vulnerability assessment and threat detection CLI.",
     )
@@ -60,7 +60,6 @@ def run_cli() -> None:
 
 
 def main() -> None:
-    """Launch the web app (if Flask is available) or the CLI."""
     if _HAS_FLASK:
         app = create_app()
         debug = os.environ.get("FLASK_DEBUG", "0") == "1"

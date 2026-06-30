@@ -1,0 +1,248 @@
+================================================================================
+THREAT INTELLIGENCE ANALYSIS REPORT
+================================================================================
+Analysis Timestamp: 2026-06-29T10:35:47.152334+00:00
+Total Logs Analyzed: 100
+
+--------------------------------------------------------------------------------
+EXECUTIVE SUMMARY
+--------------------------------------------------------------------------------
+Aggregate Threat Score: 97%
+Confirmed Threats: 10
+Suspicious Activities: 4
+Monitor Items: 1
+Operational Conditions: 12
+
+--------------------------------------------------------------------------------
+SECURITY THREAT FINDINGS
+--------------------------------------------------------------------------------
+
+[Finding #1]
+  Timestamp: 2026-06-29T09:47:03.128096+00:00Z
+  Source IP: unknown
+  Domain: SECURITY_THREATS
+  Classification: Data Exfiltration
+  Threat Status: Confirmed
+  Severity: Critical
+  Confidence: 100%
+  MITRE ATT&CK: T1041
+  Evidence: Pattern match
+  Impact: Theft of corporate intellectual property, personal user data, or database backups.
+  Mitigation: Enforce strict egress data limits and monitor for massive file transfers to external endpoints.
+  Explanation: High-volume data transfer to external IPs or cloud storages.
+
+[Finding #2]
+  Timestamp: 2026-06-29T10:15:52.128096+00:00Z
+  Source IP: unknown
+  Domain: SECURITY_THREATS
+  Classification: Ransomware Activity
+  Threat Status: Confirmed
+  Severity: Critical
+  Confidence: 100%
+  MITRE ATT&CK: T1486
+  Evidence: Pattern match
+  Impact: Complete loss of files and operational disruption due to encryption of critical assets.
+  Mitigation: Configure file integrity monitoring, enforce strict write permissions, and implement automated backups.
+  Explanation: Rapid file modification or mass encryption signatures detected.
+
+[Finding #3]
+  Timestamp: 2026-06-29T10:32:51.128096+00:00Z
+  Source IP: unknown
+  Domain: SECURITY_THREATS
+  Classification: DDoS / Volumetric Attack
+  Threat Status: Confirmed
+  Severity: Critical
+  Confidence: 100%
+  MITRE ATT&CK: T1498
+  Evidence: Pattern match
+  Impact: Denial of service making the application unavailable to legitimate users.
+  Mitigation: Deploy volumetric DDoS protection (e.g. Cloudflare) and configure rate limiters at firewall level.
+  Explanation: Volumetric traffic spike or SYN flood pattern detected.
+
+[Finding #4]
+  Timestamp: 2026-06-29T09:39:53.128096+00:00Z
+  Source IP: unknown
+  Domain: SECURITY_THREATS
+  Classification: Credential Dumping
+  Threat Status: Confirmed
+  Severity: Critical
+  Confidence: 100%
+  MITRE ATT&CK: T1003
+  Evidence: Pattern match
+  Impact: Compromise of Windows domain or local administrator credentials.
+  Mitigation: Enable LSA protection, restrict administrative privileges, and deploy Endpoint Detection and Response (EDR).
+  Explanation: lsass.exe memory access or password dumping utility execution detected.
+
+[Finding #5]
+  Timestamp: 2026-06-29T10:10:16.128096+00:00Z
+  Source IP: unknown
+  Domain: SECURITY_THREATS
+  Classification: DNS Tunneling / Exfiltration
+  Threat Status: Suspicious
+  Severity: High
+  Confidence: 74%
+  MITRE ATT&CK: T1048.003
+  Evidence: Pattern match
+  Impact: Bypass of firewall rules for data exfiltration or Command and Control (C2) communications.
+  Mitigation: Configure DNS firewalls to detect and block anomalous query rates or patterns; inspect DNS payload sizes.
+  Explanation: Unusually long or base64-encoded DNS subdomains indicating DNS tunneling.
+
+[Finding #6]
+  Timestamp: 2026-06-29T10:11:42.128096+00:00Z
+  Source IP: unknown
+  Domain: COMPLIANCE
+  Classification: Copyright Infringement / Torrenting
+  Threat Status: Suspicious
+  Severity: High
+  Confidence: 75%
+  MITRE ATT&CK: T1048
+  Evidence: Pattern match
+  Impact: May indicate copyright infringement or policy violation requiring review.
+  Mitigation: Review activity logs, verify compliance with policies, and take appropriate action.
+  Explanation: Compliance/content risk detected: Copyright Infringement / Torrenting. This indicates potential policy violation.
+
+[Finding #7]
+  Timestamp: 2026-06-29T09:35:48.128096+00:00Z
+  Source IP: unknown
+  Domain: SECURITY_THREATS
+  Classification: Port Scanning / Reconnaissance
+  Threat Status: Suspicious
+  Severity: High
+  Confidence: 75%
+  MITRE ATT&CK: T1046
+  Evidence: Pattern match
+  Impact: Potential security exposure of service resources.
+  Mitigation: Review access logs, block sender IP, and check system configurations.
+  Explanation: Security signature match for 'Port Scanning / Reconnaissance'.
+
+[Finding #8]
+  Timestamp: 2026-06-29T10:15:42.128096+00:00Z
+  Source IP: unknown
+  Domain: SECURITY_THREATS
+  Classification: Malware Distribution
+  Threat Status: Confirmed
+  Severity: Critical
+  Confidence: 100%
+  MITRE ATT&CK: T1105
+  Evidence: Pattern match
+  Impact: Potential security exposure of service resources.
+  Mitigation: Review access logs, block sender IP, and check system configurations.
+  Explanation: Security signature match for 'Malware Distribution'.
+
+[Finding #9]
+  Timestamp: 2026-06-29T10:32:54.128096+00:00Z
+  Source IP: unknown
+  Domain: SECURITY_THREATS
+  Classification: Brute-Force Authentication
+  Threat Status: Confirmed
+  Severity: Critical
+  Confidence: 99%
+  MITRE ATT&CK: T1110
+  Evidence: Pattern match
+  Impact: Unauthorized account access and credential compromise.
+  Mitigation: Implement rate limiting, account lockout policies, and enforce multi-factor authentication (MFA).
+  Explanation: Multiple failed authentication attempts detected from the same source IP.
+
+[Finding #10]
+  Timestamp: 2026-06-29T10:14:52.128096+00:00Z
+  Source IP: unknown
+  Domain: SECURITY_THREATS
+  Classification: DNS Tunneling / Exfiltration
+  Threat Status: Monitor
+  Severity: Medium
+  Confidence: 68%
+  MITRE ATT&CK: T1048.003
+  Evidence: Pattern match
+  Impact: Bypass of firewall rules for data exfiltration or Command and Control (C2) communications.
+  Mitigation: Configure DNS firewalls to detect and block anomalous query rates or patterns; inspect DNS payload sizes.
+  Explanation: Unusually long or base64-encoded DNS subdomains indicating DNS tunneling.
+
+[Finding #11]
+  Timestamp: 2026-06-29T10:09:03.128096+00:00Z
+  Source IP: unknown
+  Domain: SECURITY_THREATS
+  Classification: C2 Beacon / Command & Control
+  Threat Status: Confirmed
+  Severity: Critical
+  Confidence: 100%
+  MITRE ATT&CK: T1102
+  Evidence: Pattern match
+  Impact: Potential security exposure of service resources.
+  Mitigation: Review access logs, block sender IP, and check system configurations.
+  Explanation: Security signature match for 'C2 Beacon / Command & Control'.
+
+[Finding #12]
+  Timestamp: 2026-06-29T16:05:47.150825
+  Source IP: multiple
+  Domain: SECURITY_THREATS
+  Classification: Ransomware
+  Threat Status: Confirmed
+  Severity: Critical
+  Confidence: 90%
+  MITRE ATT&CK: NOT APPLICABLE
+  Evidence: Pattern match
+  Impact: System compromise, data loss, or unauthorized resource usage.
+  Mitigation: Isolate affected systems, analyze malware, block C2 domains, and restore from backups.
+  Explanation: Ransomware detected with confidence 90%. Evidence: known signature=True, C2 communication=False, payload detection=True.
+
+[Finding #13]
+  Timestamp: 2026-06-29T16:05:47.150852
+  Source IP: multiple
+  Domain: SECURITY_THREATS
+  Classification: Malware Activity
+  Threat Status: Suspicious
+  Severity: High
+  Confidence: 70%
+  MITRE ATT&CK: NOT APPLICABLE
+  Evidence: Pattern match
+  Impact: System compromise, data loss, or unauthorized resource usage.
+  Mitigation: Isolate affected systems, analyze malware, block C2 domains, and restore from backups.
+  Explanation: Malware Activity detected with confidence 70%. Evidence: known signature=False, C2 communication=False, payload detection=True.
+
+[Finding #14]
+  Timestamp: 2026-06-29T16:05:47.150861
+  Source IP: multiple
+  Domain: SECURITY_THREATS
+  Classification: C2 Communication
+  Threat Status: Confirmed
+  Severity: Critical
+  Confidence: 95%
+  MITRE ATT&CK: NOT APPLICABLE
+  Evidence: Pattern match
+  Impact: System compromise, data loss, or unauthorized resource usage.
+  Mitigation: Isolate affected systems, analyze malware, block C2 domains, and restore from backups.
+  Explanation: C2 Communication detected with confidence 95%. Evidence: known signature=True, C2 communication=True, payload detection=False.
+
+[Finding #15]
+  Timestamp: 2026-06-29T16:05:47.150904
+  Source IP: multiple
+  Domain: SECURITY_THREATS
+  Classification: Network Scanning / Reconnaissance
+  Threat Status: Confirmed
+  Severity: Critical
+  Confidence: 90%
+  MITRE ATT&CK: NOT APPLICABLE
+  Evidence: Pattern match
+  Impact: Reconnaissance activity may precede an attack.
+  Mitigation: Block scanning source, monitor for follow-up attacks, and review exposed services.
+  Explanation: Network scanning detected from unknown: 5 scan events. Additional evidence: OS detection=False, service enumeration=False.
+
+--------------------------------------------------------------------------------
+OPERATIONAL CONDITIONS (Non-Security)
+--------------------------------------------------------------------------------
+  - Packet Loss / Connection Issues: Operational condition - not a security threat
+  - Packet Loss / Connection Issues: Operational condition - not a security threat
+  - High Latency / Degraded Performance: Operational condition - not a security threat
+  - Packet Loss / Connection Issues: Operational condition - not a security threat
+  - High Latency / Degraded Performance: Operational condition - not a security threat
+  - Packet Loss / Connection Issues: Operational condition - not a security threat
+  - Packet Loss / Connection Issues: Operational condition - not a security threat
+  - Packet Loss / Connection Issues: Operational condition - not a security threat
+  - Packet Loss / Connection Issues: Operational condition - not a security threat
+  - Packet Loss / Connection Issues: Operational condition - not a security threat
+  - Packet Loss / Connection Issues: Operational condition - not a security threat
+  - Packet Loss / Connection Issues: Operational condition - not a security threat
+
+================================================================================
+END OF REPORT
+================================================================================
